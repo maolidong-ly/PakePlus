@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Schedule Template Editor</title>
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Microsoft YaHei",sans-serif;
+}
+body{
+    padding:20px;
+}
+h1{
+    text-align:center;
+    margin-bottom:20px;
+}
+.top-bar{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+}
+.top-bar button{
+    padding:10px 16px;
+    border:none;
+    border-radius:4px;
+    color:#fff;
+    cursor:pointer;
+    font-size:14px;
+}
+.btn-green{
+    background:#34a853;
+}
+.btn-blue{
+    background:#2979e2;
+}
+.btn-orange{
+    background:#f59e0b;
+}
+.btn-red{
+    background:#ef4444;
+}
+.template-bar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:15px;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+th,td{
+    border:1px solid #ccc;
+    padding:10px;
+    text-align:center;
+}
+.modal{
+    position:fixed;
+    top:0;left:0;
+    width:100%;height:100%;
+    background:rgba(0,0,0,0.5);
+    display:none;
+    align-items:center;
+    justify-content:center;
+}
+.modal-box{
+    background:#fff;
+    padding:20px;
+    border-radius:6px;
+    min-width:400px;
+}
+.modal-footer{
+    margin-top:15px;
+    text-align:right;
+}
+.modal-footer button{
+    padding:6px 14px;
+    margin-left:8px;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+}
+.context-menu{
+    position:fixed;
+    width:220px;
+    background:#fff;
+    border:1px solid #ccc;
+    box-shadow:2px 2px 10px #999;
+    z-index:9999;
+    display:none;
+}
+.context-menu .menu-item{
+    padding:9px 14px;
+    cursor:pointer;
+    font-size:14px;
+}
+.context-menu .menu-item:hover{
+    background:#e8f4ff;
+}
+</style>
+</head>
+<body>
+<h1>课表模板自由编辑器（右键菜单操作）</h1>
+<p style="margin-bottom:10px;">操作提示：单击选中行，鼠标右键点击表格打开编辑菜单，完成增删、移动、修改操作</p>
+
+<div class="top-bar">
+    <button class="btn-blue" onclick="backToMainSystem()">返回主系统</button>
+    <button class="btn-green" onclick="saveTemplate()">保存当前模板到本地</button>
+    <button class="btn-blue" onclick="exportJson()">导出当前模板JSON</button>
+    <button class="btn-blue" onclick="importTemplate()">仅导入本系统导出的JSON模板</button>
+    <input type="file" id="importFile" style="width:auto;">
+    <button class="btn-green" onclick="syncToMain()">同步模板到主排课系统</button>
+    <button class="btn-blue" onclick="loadTimeFromMain()">加载主系统默认课时</button>
+</div>
+
+<div class="template-bar">
+    <span>已保存模板列表：</span>
+    <select id="templateSelect"></select>
+    <button class="btn-blue" onclick="loadTemplate()">加载选中模板</button>
+    <button class="btn-orange" onclick="renameTemplate()">重命名模板</button>
+    <button class="btn-red" onclick="delTemplate()">删除模板</button>
+</div>
+
+<button class="btn-orange" onclick="clearAll()">清空所有单元格内容</button>
+
+<table id="tableBox">
+    <thead>
+        <tr>
+            <th>课时</th>
+            <th>周一</th>
+            <th>周二</th>
+            <th>周三</th>
+            <th>周四</th>
+            <th>周五</th>
+            <th>周六</th>
+            <th>周日</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+
+<!-- 右键菜单 -->
+<div id="contextMenu" class="context-menu">
+    <div class="menu-item" data-type="edit">编辑当前单元格/课时名称</div>
+    <div class="menu-item" data-type="clearRow">清空当前整行课程</div>
+    <div class="menu-item" data-type="insertUp">当前行上方插入课时行</div>
+    <div class="menu-item" data-type="insertDown">当前行下方插入课时行</div>
+    <div class="menu-item" data-type="moveUp">当前行向上移动一行</div>
+    <div class="menu-item" data-type="moveDown">当前行向下移动一行</div>
+    <div class="menu-item" data-type="deleteRow">删除当前课时行</div>
+</div>
+
+<!-- 班级绑定弹窗 -->
+<div id="bindModal" class="modal">
+    <div class="modal-box">
+        <p>请选择需要绑定的班级名称：</p>
+        <select id="bindClassSelect" style="width:100%;padding:8px;margin-top:10px;">
+            <option value="">请选择绑定班级</option>
+        </select>
+        <div class="modal-footer">
+            <button onclick="closeBindModal()">取消</button>
+            <button class="btn-blue" onclick="confirmSync()">确认绑定同步</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 全局数据源
+let tableData = [];
+let timeList = [];
+let templateList = JSON.parse(localStorage.getItem('templateList') || '[]');
+let selectRow = -1;
+let selectCol = -1;
+const tableBody = document.getElementById('tableBody');
+const contextMenu = document.getElementById('contextMenu');
+
+// ==========时间冲突检测工具函数==========
+// 时间字符串转当天分钟数 "HH:mm"
+function timeToMin(timeStr) {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+}
+
+// 判断两个时间段是否重叠（首尾相接不算冲突）
+function isTimeOverlap(start1, end1, start2, end2) {
+    const s1 = timeToMin(start1);
+    const e1 = timeToMin(end1);
+    const s2 = timeToMin(start2);
+    const e2 = timeToMin(end2);
+    return s1 < e2 && s2 < e1;
+}
+
+window.onload = function(){
+    renderTemplateSelect();
+    initTable();
+    loadMainClassList();
+    bindContextMenuEvent();
+}
+
+// 返回主系统
+function backToMainSystem(){
+    if(window.history.length > 1){
+        window.history.back();
+    }else{
+        alert("未检测到上一页历史记录，请手动打开主系统页面");
+    }
+}
+
+// 绑定右键菜单事件
+function bindContextMenuEvent(){
+    document.querySelectorAll('.menu-item').forEach(item=>{
+        item.onclick = function(){
+            const type = this.dataset.type;
+            hideContextMenu();
+            switch(type){
+                case 'edit':
+                    editCell();
+                    break;
+                case 'clearRow':
+                    tableData[selectRow].fill('');
+                    renderTable();
+                    break;
+                case 'insertUp':
+                    tableData.splice(selectRow, 0, ['','','','','','','']);
+                    timeList.splice(selectRow, 0, {name:'新增课时'});
+                    renderTable();
+                    break;
+                case 'insertDown':
+                    tableData.splice(selectRow + 1, 0, ['','','','','','','']);
+                    timeList.splice(selectRow + 1, 0, {name:'新增课时'});
+                    renderTable();
+                    break;
+                case 'moveUp':
+                    if(selectRow === 0){
+                        alert('当前已经是第一行，无法上移');
+                        return;
+                    }
+                    [tableData[selectRow], tableData[selectRow - 1]] = [tableData[selectRow - 1], tableData[selectRow]];
+                    [timeList[selectRow], timeList[selectRow - 1]] = [timeList[selectRow - 1], timeList[selectRow]];
+                    selectRow--;
+                    renderTable();
+                    break;
+                case 'moveDown':
+                    if(selectRow === tableData.length - 1){
+                        alert('当前已经是最后一行，无法下移');
+                        return;
+                    }
+                    [tableData[selectRow], tableData[selectRow + 1]] = [tableData[selectRow + 1], tableData[selectRow]];
+                    [timeList[selectRow], timeList[selectRow + 1]] = [timeList[selectRow + 1], timeList[selectRow]];
+                    selectRow++;
+                    renderTable();
+                    break;
+                case 'deleteRow':
+                    if(tableData.length <= 1){
+                        alert('系统必须至少保留一行课时数据，禁止删除全部行');
+                        return;
+                    }
+                    tableData.splice(selectRow, 1);
+                    timeList.splice(selectRow, 1);
+                    renderTable();
+                    break;
+            }
+        }
+    })
+    document.addEventListener('click', hideContextMenu);
+}
+
+// 智能防遮挡弹出右键菜单
+function showContextMenu(x, y){
+    const menuHeight = contextMenu.offsetHeight;
+    if(y + menuHeight > window.innerHeight){
+        contextMenu.style.top = (y - menuHeight) + 'px';
+    }else{
+        contextMenu.style.top = y + 'px';
+    }
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.display = 'block';
+}
+
+function hideContextMenu(){
+    contextMenu.style.display = 'none';
+}
+
+// 编辑单元格（课时/课程均可编辑持久化）
+function editCell(){
+    if(selectCol === 0){
+        const oldName = timeList[selectRow].name;
+        const newName = prompt('请输入课时名称', oldName);
+        if(newName !== null && newName.trim() !== ''){
+            timeList[selectRow].name = newName.trim();
+            renderTable();
+        }
+    }else{
+        const cellIndex = selectCol - 1;
+        const oldContent = tableData[selectRow][cellIndex];
+        const newContent = prompt('请输入课程内容\n格式：课程|教师|教室|星期|开始时间|结束时间', oldContent);
+        if(newContent !== null){
+            tableData[selectRow][cellIndex] = newContent.trim();
+            renderTable();
+        }
+    }
+}
+
+// 初始化表格
+function initTable(){
+    timeList = JSON.parse(localStorage.getItem('timeList') || '[]');
+    tableData = [];
+    tableBody.innerHTML = '';
+    timeList.forEach((timeItem, index)=>{
+        const tr = document.createElement('tr');
+        const tdTime = document.createElement('td');
+        tdTime.textContent = timeItem.name || `第${index + 1}节`;
+        tdTime.oncontextmenu = function(e){
+            e.preventDefault();
+            selectRow = index;
+            selectCol = 0;
+            showContextMenu(e.clientX, e.clientY);
+        }
+        tr.appendChild(tdTime);
+        const rowArr = [];
+        for(let i = 1; i <= 7; i++){
+            const td = document.createElement('td');
+            td.oncontextmenu = function(e){
+                e.preventDefault();
+                selectRow = index;
+                selectCol = i;
+                showContextMenu(e.clientX, e.clientY);
+            }
+            tr.appendChild(td);
+            rowArr.push('');
+        }
+        tableBody.appendChild(tr);
+        tableData.push(rowArr);
+    })
+}
+
+// 统一表格渲染
+function renderTable(){
+    tableBody.innerHTML = '';
+    const renderMax = Math.min(timeList.length, tableData.length);
+    for(let i = 0; i < renderMax; i++){
+        const tr = document.createElement('tr');
+        const tdTime = document.createElement('td');
+        tdTime.textContent = timeList[i].name || `第${i + 1}节`;
+        tdTime.oncontextmenu = function(e){
+            e.preventDefault();
+            selectRow = i;
+            selectCol = 0;
+            showContextMenu(e.clientX, e.clientY);
+        }
+        tr.appendChild(tdTime);
+        const row = tableData[i];
+        for(let j = 0; j < 7; j++){
+            const td = document.createElement('td');
+            td.textContent = row[j] || '';
+            td.oncontextmenu = function(e){
+                e.preventDefault();
+                selectRow = i;
+                selectCol = j + 1;
+                showContextMenu(e.clientX, e.clientY);
+            }
+            tr.appendChild(td);
+        }
+        tableBody.appendChild(tr);
+    }
+}
+
+// 清空所有单元格
+function clearAll(){
+    if(!confirm('确定清空表格内所有课程内容吗？')) return;
+    tableData = tableData.map(row => row.fill(''));
+    renderTable();
+}
+
+// 刷新模板下拉
+function renderTemplateSelect(){
+    const selectDom = document.getElementById('templateSelect');
+    selectDom.innerHTML = '';
+    templateList.forEach((item, index)=>{
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = item.name;
+        selectDom.appendChild(option);
+    })
+}
+
+// 保存模板到本地
+function saveTemplate(){
+    const templateName = prompt('请输入当前课表模板名称');
+    if(!templateName || templateName.trim() === '') return;
+    const saveTable = JSON.parse(JSON.stringify(tableData));
+    const saveTime = JSON.parse(JSON.stringify(timeList));
+    templateList.push({
+        name: templateName.trim(),
+        table: saveTable,
+        time: saveTime
+    });
+    localStorage.setItem('templateList', JSON.stringify(templateList));
+    renderTemplateSelect();
+    alert('✅ 模板保存成功，已添加到下方下拉列表');
+}
+
+// 加载选中模板
+function loadTemplate(){
+    const selectDom = document.getElementById('templateSelect');
+    const selectedIndex = selectDom.value;
+    if(selectedIndex === ''){
+        alert('请先在下拉列表选择一个已保存的模板');
+        return;
+    }
+    const targetTemplate = templateList[selectedIndex];
+    tableData = JSON.parse(JSON.stringify(targetTemplate.table));
+    timeList = JSON.parse(JSON.stringify(targetTemplate.time));
+    renderTable();
+    alert('✅ 模板加载完成，课表已渲染');
+}
+
+// 重命名模板
+function renameTemplate(){
+    const selectDom = document.getElementById('templateSelect');
+    const idx = selectDom.value;
+    if(idx === '') return;
+    const newName = prompt('请输入模板新名称', templateList[idx].name);
+    if(newName && newName.trim() !== ''){
+        templateList[idx].name = newName.trim();
+        localStorage.setItem('templateList', JSON.stringify(templateList));
+        renderTemplateSelect();
+    }
+}
+
+// 删除模板
+function delTemplate(){
+    const selectDom = document.getElementById('templateSelect');
+    const idx = selectDom.value;
+    if(idx === '') return;
+    if(!confirm('确定永久删除该模板吗？')) return;
+    templateList.splice(idx, 1);
+    localStorage.setItem('templateList', JSON.stringify(templateList));
+    renderTemplateSelect();
+}
+
+// 导出JSON模板
+function exportJson(){
+    const exportObj = {
+        table: tableData,
+        time: timeList
+    };
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], {type:'application/json;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '课表模板.json';
+    a.click();
+}
+
+// 仅导入本系统导出的JSON
+function importTemplate(){
+    const file = document.getElementById('importFile').files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.readAsText(file, 'UTF-8');
+    reader.onload = function(e){
+        try{
+            let text = e.target.result;
+            if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+            const fileData = JSON.parse(text);
+            if(!fileData.table || !fileData.time || !Array.isArray(fileData.table) || !Array.isArray(fileData.time)){
+                alert('仅支持导入当前系统导出的课表JSON文件，旧模板文件无法识别');
+                return;
+            }
+            tableData = JSON.parse(JSON.stringify(fileData.table));
+            timeList = JSON.parse(JSON.stringify(fileData.time));
+            renderTable();
+            const fileName = file.name.replace('.json','');
+            const saveName = prompt('请设置模板名称保存到本地列表', fileName);
+            if(saveName && saveName.trim() !== ''){
+                templateList.push({
+                    name: saveName.trim(),
+                    table: JSON.parse(JSON.stringify(tableData)),
+                    time: JSON.parse(JSON.stringify(timeList))
+                });
+                localStorage.setItem('templateList', JSON.stringify(templateList));
+                renderTemplateSelect();
+                alert('✅ 模板导入并保存成功');
+            }
+        }catch(err){
+            alert('文件解析失败，该文件不是本系统导出的合法课表模板');
+            console.error(err);
+        }
+    }
+}
+
+// 加载默认课时
+function loadTimeFromMain(){
+    initTable();
+    alert('✅ 已加载主系统默认课时配置');
+}
+
+// 加载班级下拉
+function loadMainClassList(){
+    const classArr = JSON.parse(localStorage.getItem('classList') || '[]');
+    const selectDom = document.getElementById('bindClassSelect');
+    selectDom.innerHTML = '<option value="">请选择绑定班级</option>';
+    classArr.forEach(className=>{
+        const opt = document.createElement('option');
+        opt.value = className;
+        opt.textContent = className;
+        selectDom.appendChild(opt);
+    })
+}
+
+function closeBindModal(){
+    document.getElementById('bindModal').style.display = 'none';
+}
+
+function syncToMain(){
+    document.getElementById('bindModal').style.display = 'flex';
+}
+
+// 【核心：时间段重叠冲突检测同步函数】
+function confirmSync(){
+    const bindClassName = document.getElementById('bindClassSelect').value.trim();
+    if(!bindClassName){
+        alert('请先选择需要绑定的班级');
+        return;
+    }
+    const allClassTables = JSON.parse(localStorage.getItem('multiTableData') || '[]');
+    const targetClassTable = allClassTables.find(item=>item.bindClass === bindClassName);
+    if(!targetClassTable){
+        alert('主系统中未查询到该班级，请先在主系统创建班级课表');
+        closeBindModal();
+        return;
+    }
+
+    const weekTeacherMap = {};
+    const weekRoomMap = {};
+    const currentCourseList = [];
+    let conflictMsg = "=====排课冲突检测结果=====\n";
+    let hasConflict = false;
+
+    // 解析当前所有课程
+    tableData.forEach((rowArr, rid) => {
+        rowArr.forEach((cellText, wid) => {
+            const content = cellText.trim();
+            if (!content) return;
+            const parts = content.split('|');
+            if (parts.length < 6) return;
+
+            const teacher = parts[1].trim();
+            const room = parts[2].trim();
+            const week = parts[3].trim();
+            const startTime = parts[4].trim();
+            const endTime = parts[5].trim();
+
+            currentCourseList.push({
+                className: bindClassName,
+                teacher,
+                room,
+                week,
+                startTime,
+                endTime,
+                content
+            });
+        });
+    });
+
+    // 检测当前班级内部时段重叠冲突
+    for (let i = 0; i < currentCourseList.length; i++) {
+        const c1 = currentCourseList[i];
+        for (let j = i + 1; j < currentCourseList.length; j++) {
+            const c2 = currentCourseList[j];
+            if (c1.week === c2.week && isTimeOverlap(c1.startTime, c1.endTime, c2.startTime, c2.endTime)) {
+                hasConflict = true;
+                conflictMsg += `【班级内部冲突】${bindClassName} ${c1.week}\n课程1：${c1.content}\n课程2：${c2.content}\n时间段重叠\n\n`;
+            }
+        }
+
+        if (!weekTeacherMap[c1.week]) weekTeacherMap[c1.week] = [];
+        weekTeacherMap[c1.week].push({
+            name: c1.teacher,
+            start: c1.startTime,
+            end: c1.endTime,
+            className: c1.className,
+            content: c1.content
+        });
+
+        if (!weekRoomMap[c1.week]) weekRoomMap[c1.week] = [];
+        weekRoomMap[c1.week].push({
+            name: c1.room,
+            start: c1.startTime,
+            end: c1.endTime,
+            className: c1.className,
+            content: c1.content
+        });
+    }
+
+    // 遍历其他班级检测教师、教室时间重叠冲突
+    for (const table of allClassTables) {
+        if (table.bindClass === bindClassName) continue;
+        for (const [_, cellText] of Object.entries(table.data)) {
+            const content = cellText.trim();
+            if (!content) continue;
+            const parts = content.split('|');
+            if (parts.length < 6) continue;
+
+            const teacher = parts[1].trim();
+            const room = parts[2].trim();
+            const week = parts[3].trim();
+            const startTime = parts[4].trim();
+            const endTime = parts[5].trim();
+            const clsName = table.bindClass;
+
+            // 教师冲突
+            if (weekTeacherMap[week]) {
+                for (const item of weekTeacherMap[week]) {
+                    if (item.name === teacher && isTimeOverlap(item.start, item.end, startTime, endTime)) {
+                        hasConflict = true;
+                        conflictMsg += `【教师时间冲突】教师：${teacher} ${week}\n待排：${item.content}\n已有【${clsName}】：${content}\n时间段重叠\n\n`;
+                    }
+                }
+            }
+            // 教室冲突
+            if (weekRoomMap[week]) {
+                for (const item of weekRoomMap[week]) {
+                    if (item.name === room && isTimeOverlap(item.start, item.end, startTime, endTime)) {
+                        hasConflict = true;
+                        conflictMsg += `【教室资源冲突】教室：${room} ${week}\n待排：${item.content}\n已有占用【${clsName}】：${content}\n时间段重叠\n\n`;
+                    }
+                }
+            }
+        }
+    }
+
+    if (hasConflict) {
+        alert(conflictMsg + "请调整上课时间段、更换教师或教室后重新同步！");
+        closeBindModal();
+        return;
+    }
+
+    // 无冲突执行同步
+    targetClassTable.data = {};
+    tableData.forEach((row, rid) => {
+        row.forEach((cell, wid) => {
+            if (cell) targetClassTable.data[`${rid}-${wid}`] = cell;
+        });
+    });
+    localStorage.setItem('multiTableData', JSON.stringify(allClassTables));
+    alert('✅ 冲突校验通过，无时间重叠冲突，课表同步成功');
+    closeBindModal();
+}
+</script>
+</body>
+</html>
