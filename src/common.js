@@ -179,16 +179,18 @@ function getCourseInfo(valKey){
     );
 }
 
-// ========== 仅导出【当前课表】的课时备份（不再全局导出） ==========
-function exportTimeBackup(){
+// ========== 仅导出【当前课表】的课时备份（Tauri适配） ==========
+async function exportTimeBackup(){
     const table = getCurrentTableInfo();
-    const blob = new Blob([JSON.stringify(table.timeList,null,2)],{type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${table.name}_课时备份_${new Date().getTime()}.json`;
-    a.click();
-    alert("✅ 当前课表课时数据导出完成，仅备份本班级课时，不会影响其他课表");
+    const jsonStr = JSON.stringify(table.timeList,null,2);
+    const blob = new Blob([jsonStr],{type:"application/json"});
+    const fileName = `${table.name}_课时备份_${new Date().getTime()}.json`;
+    const ok = await saveFileByTauri(fileName, blob);
+    if(ok){
+        alert("✅ 当前课表课时数据导出完成，仅备份本班级课时，不会影响其他课表");
+    }
 }
+
 // 导入课时：仅覆盖当前选中课表的课时，不影响全局、其他班级
 function importTimeBackup(){
     const file = document.getElementById("timeBackupFile").files[0];
@@ -212,16 +214,15 @@ function importTimeBackup(){
     reader.readAsText(file);
 }
 
-// 班级模块备份
-function exportClassBackup(){
+// 班级模块备份 Tauri适配
+async function exportClassBackup(){
     const data = localStorage.classList;
     const blob = new Blob([data],{type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `班级学员组备份_${new Date().getTime()}.json`;
-    a.click();
-    alert("✅ 班级数据导出完成");
+    const fileName = `班级学员组备份_${new Date().getTime()}.json`;
+    const ok = await saveFileByTauri(fileName, blob);
+    if(ok) alert("✅ 班级数据导出完成");
 }
+
 function importClassBackup(){
     const file = document.getElementById("classBackupFile").files[0];
     if(!file) return alert("请选择备份文件");
@@ -241,16 +242,15 @@ function importClassBackup(){
     reader.readAsText(file);
 }
 
-// 教师模块备份
-function exportTeacherBackup(){
+// 教师模块备份 Tauri适配
+async function exportTeacherBackup(){
     const data = localStorage.teacherList;
     const blob = new Blob([data],{type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `教师数据备份_${new Date().getTime()}.json`;
-    a.click();
-    alert("✅ 教师数据导出完成");
+    const fileName = `教师数据备份_${new Date().getTime()}.json`;
+    const ok = await saveFileByTauri(fileName, blob);
+    if(ok) alert("✅ 教师数据导出完成");
 }
+
 function importTeacherBackup(){
     const file = document.getElementById("teacherBackupFile").files[0];
     if(!file) return alert("请选择备份文件");
@@ -269,16 +269,15 @@ function importTeacherBackup(){
     reader.readAsText(file);
 }
 
-// 教室模块备份
-function exportRoomBackup(){
+// 教室模块备份 Tauri适配
+async function exportRoomBackup(){
     const data = localStorage.roomList;
     const blob = new Blob([data],{type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `教室场地备份_${new Date().getTime()}.json`;
-    a.click();
-    alert("✅ 教室数据导出完成");
+    const fileName = `教室场地备份_${new Date().getTime()}.json`;
+    const ok = await saveFileByTauri(fileName, blob);
+    if(ok) alert("✅ 教室数据导出完成");
 }
+
 function importRoomBackup(){
     const file = document.getElementById("roomBackupFile").files[0];
     if(!file) return alert("请选择备份文件");
@@ -297,16 +296,15 @@ function importRoomBackup(){
     reader.readAsText(file);
 }
 
-// 课程模块备份
-function exportCourseBackup(){
+// 课程模块备份 Tauri适配
+async function exportCourseBackup(){
     const data = localStorage.courseList;
     const blob = new Blob([data],{type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `课程数据备份_${new Date().getTime()}.json`;
-    a.click();
-    alert("✅ 课程数据导出完成");
+    const fileName = `课程数据备份_${new Date().getTime()}.json`;
+    const ok = await saveFileByTauri(fileName, blob);
+    if(ok) alert("✅ 课程数据导出完成");
 }
+
 function importCourseBackup(){
     const file = document.getElementById("courseBackupFile").files[0];
     if(!file) return alert("请选择备份文件");
