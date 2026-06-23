@@ -3,6 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <title>西典学校排课系统</title>
+<!-- 【关键修复1：最头部提前挂载Tauri权限+全局保存函数，所有外部JS都能正常调用】 -->
+<script>
+// Tauri 文件读写、弹窗权限全局配置
+window.__TAURI_CONFIG__ = {
+  allowlist: {
+    fs: {
+      scope: ["$DESKTOP/*", "$DOCUMENT/*", "$DOWNLOAD/*"]
+    },
+    dialog: true,
+    path: true
+  }
+};
+
+// 全局文件保存公共方法，挂载到window，common.js/baseManage.js可直接调用
+async function saveFileByTauri(fileName, blob) {
+    try {
+        const { save } = window.__TAURI__.dialog;
+        const { writeBinaryFile } = window.__TAURI__.fs;
+        const savePath = await save({
+            defaultPath: fileName,
+            filters: [
+                { name: "Excel表格", extensions: ["xls"] },
+                { name: "JSON备份文件", extensions: ["json"] }
+            ]
+        });
+        if (!savePath) return false;
+        const buf = await blob.arrayBuffer();
+        await writeBinaryFile(savePath, new Uint8Array(buf));
+        return true;
+    } catch (err) {
+        console.error("文件保存异常：", err);
+        alert("文件保存失败：" + err.message);
+        return false;
+    }
+}
+// 全局挂载，解决外部JS找不到函数报错
+window.saveFileByTauri = saveFileByTauri;
+</script>
+
 <style>
 *{
     margin: 0;
@@ -724,29 +763,6 @@ body.light-mode .modal-footer button{
 <script src="baseManage.js"></script>
 <script src="scheduleRender.js"></script>
 <script>
-// ========== Tauri 文件保存公共工具方法 ==========
-async function saveFileByTauri(fileName, blob) {
-    try {
-        const { save } = window.__TAURI__.dialog;
-        const { writeBinaryFile } = window.__TAURI__.fs;
-        const savePath = await save({
-            defaultPath: fileName,
-            filters: [
-                { name: "Excel表格", extensions: ["xls"] },
-                { name: "JSON备份文件", extensions: ["json"] }
-            ]
-        });
-        if (!savePath) return false;
-        const buf = await blob.arrayBuffer();
-        await writeBinaryFile(savePath, new Uint8Array(buf));
-        return true;
-    } catch (err) {
-        console.error("文件保存异常：", err);
-        alert("文件保存失败：" + err.message);
-        return false;
-    }
-}
-
 // 主题切换逻辑
 const THEME_STORAGE_KEY = 'schedule_theme_mode';
 const themeBtn = document.getElementById('themeToggleBtn');
@@ -856,7 +872,8 @@ async function exportAllBackup() {
         const jsonStr = JSON.stringify(allData, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const fileName = `西典排课_全量备份_${new Date().getTime()}.json`;
-        const ok = await saveFileByTauri(fileName, blob);
+        // 调用全局挂载的保存函数
+        const ok = await window.saveFileByTauri(fileName, blob);
         if (ok) alert('全量数据导出备份成功！');
     } catch (e) {
         console.error(e);
@@ -864,6 +881,7 @@ async function exportAllBackup() {
     }
 }
 </script>
+<!-- 【修复音频标签语法错误】 -->
 <audio id="clickAudio" src="dianji.mp3" preload="auto">
 <script>
     const audio = document.getElementById('clickAudio');
