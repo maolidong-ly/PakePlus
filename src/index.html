@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>西典学校排课系统</title>
+<style>
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Microsoft YaHei",sans-serif;
+}
+/* 主题变量定义 */
+:root{
+    --dark-bg-body: #0f1724;
+    --dark-bg-panel: rgba(30, 41, 59, 0.65);
+    --dark-text-color: #f0f4f8;
+    --dark-primary: #0077dd;
+    --dark-primary-light: #0099ff;
+
+    --light-bg-body: #f5f7fa;
+    --light-bg-panel: #ffffff;
+    --light-text-color: #2d3748;
+    --light-primary: #2b6cb0;
+    --light-primary-light: #3182ce;
+
+    /* 缩小后的椭圆按钮参数 */
+    --special-radius: 9999px;
+    --special-padding: 10px 18px;
+    --special-font-size: 15px;
+}
+body{
+    padding:20px;
+    background-color: var(--bg-body, var(--dark-bg-body));
+    color: var(--text-color, var(--dark-text-color));
+    transition: background 0.3s ease, color 0.3s ease;
+}
+/* 亮色主题样式，统一按钮背景 */
+body.light-mode{
+    --bg-body: var(--light-bg-body);
+    --bg-panel: var(--light-bg-panel);
+    --text-color: var(--light-text-color);
+    --primary: var(--light-primary);
+    --primary-light: var(--light-primary-light);
+}
+/* 深色主题默认 */
+body:not(.light-mode){
+    --bg-body: var(--dark-bg-body);
+    --bg-panel: var(--dark-bg-panel);
+    --text-color: var(--dark-text-color);
+    --primary: var(--dark-primary);
+    --primary-light: var(--dark-primary-light);
+}
+.header-box{
+    position: relative;
+    text-align: center;
+    margin-bottom:24px;
+}
+h1{
+    color: var(--primary-light);
+    text-shadow: 0 0 12px rgba(0, 204, 255, 0.35);
+    letter-spacing: 2px;
+}
+body.light-mode h1{
+    text-shadow: none;
+}
+.theme-switch-btn{
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}
+/* 全局美化滚动条 科技风 */
+::-webkit-scrollbar{
+    width: 6px;
+    height:6px;
+}
+::-webkit-scrollbar-track{
+    background: #1e293b;
+}
+::-webkit-scrollbar-thumb{
+    background: var(--primary-light);
+    border-radius: 3px;
+}
+/* 顶部导航标签 */
+.tab-top{
+    display:flex;
+    gap:8px;
+    margin-bottom:18px;
+    flex-wrap: wrap;
+}
+.tab-top button{
+    padding:13px 24px;
+    border:1px solid rgba(0, 153, 255, 0.2);
+    background:var(--bg-panel);
+    border-radius: 6px;
+    font-size:15px;
+    cursor:pointer;
+    color:#cbd5e1;
+    transition: all 0.25s ease;
+}
+body.light-mode .tab-top button{
+    color:#2d3748;
+    border:1px solid #cbd5e1;
+}
+.tab-top button:hover{
+    border-color: rgba(0, 153, 255, 0.5);
+    box-shadow: 0 0 8px rgba(0,153,255,0.2);
+}
+.tab-top button.active{
+    background:var(--primary);
+    color:#fff;
+    border-color: var(--primary-light);
+    box-shadow: 0 0 10px rgba(0,153,255,0.4);
+}
+body.light-mode .tab-top button.active{
+    box-shadow: none;
+}
+/* 【新增】统一功能按钮样式，和tab-top导航按钮完全一致，解决浅色透明问题 */
+.mode-view-bar .tab-style-btn{
+    padding:13px 24px;
+    border:1px solid rgba(0, 153, 255, 0.2);
+    background:var(--bg-panel);
+    border-radius: 6px;
+    font-size:15px;
+    cursor:pointer;
+    color:#cbd5e1;
+    transition: all 0.25s ease;
+}
+body.light-mode .mode-view-bar .tab-style-btn{
+    color:#2d3748;
+    border:1px solid #cbd5e1;
+}
+.mode-view-bar .tab-style-btn:hover{
+    border-color: rgba(0, 153, 255, 0.5);
+    box-shadow: 0 0 8px rgba(0,153,255,0.2);
+}
+.mode-view-bar .tab-style-btn.active{
+    background:var(--primary);
+    color:#fff;
+    border-color: var(--primary-light);
+    box-shadow: 0 0 10px rgba(0,153,255,0.4);
+}
+body.light-mode .mode-view-bar .tab-style-btn.active{
+    box-shadow: none;
+}
+/* 单独：下一步按钮浅色黑色文字，深色白色文字 */
+body.light-mode .next-step-btn{
+    color:#000000 !important;
+}
+body:not(.light-mode) .next-step-btn{
+    color:#cbd5e1 !important;
+}
+
+/* 顶部操作栏 */
+.top-operate{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+    padding:14px;
+    background:var(--bg-panel);
+    border-radius:8px;
+    border:1px solid rgba(0, 153, 255, 0.15);
+}
+body.light-mode .top-operate{
+    border:1px solid #e2e8f0;
+}
+.top-operate input,.top-operate select{
+    padding:10px 12px;
+    border:1px solid rgba(0,153,255,0.25);
+    border-radius:5px;
+    font-size:14px;
+    background:#1e293b;
+    color:var(--text-color);
+    outline: none;
+    transition: border 0.2s;
+}
+body.light-mode .top-operate input,
+body.light-mode .top-operate select{
+    background:#fff;
+    border:1px solid #cbd5e1;
+}
+.top-operate input:focus,.top-operate select:focus{
+    border-color:var(--primary-light);
+    box-shadow: 0 0 0 2px rgba(0,153,255,0.15);
+}
+.top-operate button,.top-operate a{
+    padding:10px 20px;
+    border:none;
+    border-radius:5px;
+    color:#fff;
+    font-size:14px;
+    cursor:pointer;
+    text-decoration:none;
+    display:inline-block;
+    transition: all 0.22s ease;
+}
+.top-operate button:hover,.top-operate a:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+}
+/* 统一按钮渐变背景，浅色模式清晰可见 */
+.btn-blue{
+    background:linear-gradient(135deg,#005fb8,#0086d8);
+    color:#fff !important;
+}
+body.light-mode .btn-blue{
+    background:linear-gradient(135deg,#2563eb,#3b82f6);
+}
+.btn-red{
+    background:linear-gradient(135deg,#b91c1c,#ef4444);
+    color:#fff !important;
+}
+body.light-mode .btn-red{
+    background:linear-gradient(135deg,#dc2626,#f87171);
+}
+.btn-orange{
+    background:linear-gradient(135deg,#c2410c,#fb923c);
+    color:#fff !important;
+}
+body.light-mode .btn-orange{
+    background:linear-gradient(135deg,#ea580c,#fb923c);
+}
+.btn-green{
+    background:linear-gradient(135deg,#15803d,#22c55e);
+    color:#fff !important;
+}
+body.light-mode .btn-green{
+    background:linear-gradient(135deg,#16a34a,#22c55e);
+}
+/* 原有普通按钮样式废弃，改用上面tab-style-btn统一样式 */
+.mode-view-bar button:not(.tab-style-btn){
+    padding:9px 16px;
+    border:none;
+    border-radius:5px;
+    color:#fff;
+    cursor:pointer;
+    font-size:14px;
+    transition: all 0.22s ease;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.12);
+}
+body.light-mode .mode-view-bar button:not(.tab-style-btn){
+    background:#f1f5f9;
+    color:#2d3748;
+    border:1px solid #cbd5e1;
+}
+.mode-view-bar button:not(.tab-style-btn):hover{
+    background:rgba(0,153,255,0.2);
+    border-color:rgba(0,153,255,0.4);
+    transform: translateY(-2px);
+}
+body.light-mode .mode-view-bar button:not(.tab-style-btn):hover{
+    background:#e2e8f0;
+}
+/* 所有下拉框统一样式，修复深色下拉框突兀问题 */
+.mode-view-bar select,
+.top-operate select,
+.form-row select{
+    padding:9px 16px;
+    border:1px solid rgba(0,153,255,0.25);
+    border-radius:5px;
+    font-size:14px;
+    background:#1e293b;
+    color:var(--text-color);
+}
+body.light-mode .mode-view-bar select,
+body.light-mode .top-operate select,
+body.light-mode .form-row select{
+    background:#ffffff;
+    border:1px solid #cbd5e1;
+    color:#2d3748;
+}
+.form-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:14px 0;
+    flex-wrap:wrap;
+    padding:12px;
+    background:var(--bg-panel);
+    border-radius:8px;
+    border:1px solid rgba(0,153,255,0.15);
+}
+body.light-mode .form-row{
+    border:1px solid #e2e8f0;
+}
+.form-row label{
+    width:95px;
+    font-size:14px;
+    color:#cbd5e1;
+}
+body.light-mode .form-row label{
+    color:#2d3748;
+}
+.form-row input,.form-row select{
+    padding:8px 11px;
+    border:1px solid rgba(0,153,255,0.25);
+    border-radius:5px;
+    font-size:14px;
+    background:#1e293b;
+    color:var(--text-color);
+    outline: none;
+}
+body.light-mode .form-row input,
+body.light-mode .form-row select{
+    background:#fff;
+}
+.form-row input:focus,.form-row select:focus{
+    border-color:var(--primary-light);
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--bg-panel);
+    border:1px solid rgba(0,153,255,0.18);
+    border-radius:8px;
+    overflow: hidden;
+}
+body.light-mode table{
+    border:1px solid #e2e8f0;
+}
+table th,table td{
+    border:1px solid rgba(0, 153, 255, 0.15);
+    padding:12px;
+    text-align:center;
+}
+body.light-mode table th,
+body.light-mode table td{
+    border:1px solid #e2e8f0;
+}
+table th{
+    background:#005599;
+    color:#fff;
+}
+body.light-mode table th{
+    background:#2563eb;
+}
+table tbody tr:nth-child(even){
+    background:rgba(255,255,255,0.04);
+}
+body.light-mode table tbody tr:nth-child(even){
+    background:#f8fafc;
+}
+table tbody tr:hover{
+    background:rgba(0,153,255,0.12);
+}
+body.light-mode table tbody tr:hover{
+    background:#eff6ff;
+}
+/* 弹窗样式 */
+.modal-mask{
+    position:fixed;
+    left:0;top:0;
+    width:100%;height:100%;
+    background:rgba(0,0,0,0.75);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:999;
+}
+.modal-wrap{
+    background:#1e293b;
+    padding:26px;
+    border-radius:10px;
+    min-width:560px;
+    border:1px solid rgba(0,153,255,0.3);
+    box-shadow: 0 0 25px rgba(0,153,255,0.18);
+}
+body.light-mode .modal-wrap{
+    background:#fff;
+}
+.modal-title{
+    font-size:18px;
+    margin-bottom:16px;
+    color:#00ccff;
+}
+body.light-mode .modal-title{
+    color:#2563eb;
+}
+.modal-footer{
+    margin-top:22px;
+    text-align:right;
+    display:flex;
+    gap:12px;
+    justify-content:flex-end;
+}
+.modal-footer button{
+    padding:8px 18px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+    background:#334155;
+    color:#fff;
+    transition: 0.2s;
+}
+body.light-mode .modal-footer button{
+    background:#e2e8f0;
+    color:#2d3748;
+}
+.modal-footer button:hover{
+    background:var(--primary);
+    color:#fff;
+}
+.tab-content{
+    display:none;
+}
+.tab-content.active{
+    display:block;
+}
+#conflictTip{
+    margin:10px 0 14px;
+    color:#ff4757;
+    font-weight:500;
+    font-size:15px;
+    padding:8px 12px;
+    background:rgba(220,38,38,0.12);
+    border-radius:6px;
+    border:1px solid rgba(220,38,38,0.25);
+}
+
+/* ========== 打印样式 ========== */
+@media print {
+    body{
+        background:#fff;
+        color:#333;
+    }
+    h1,
+    .top-operate,
+    .mode-view-bar,
+    .tab-top,
+    .form-row,
+    #conflictTip,
+    .modal-mask,
+    .table-tag-box,
+    .theme-switch-btn{
+        display: none !important;
+    }
+    #scheduleTable{
+        width: 100%;
+        margin: 0 auto;
+        background:#fff;
+    }
+    table th{
+        background:#eee !important;
+        color:#333 !important;
+    }
+    @page {
+        size: A4 landscape;
+        margin: 10mm;
+    }
+}
+
+/* 缩小椭圆按钮：仅主题按钮、底部form-row按钮 */
+.theme-switch-btn .btn-blue,
+.form-row .btn-orange,
+.form-row .btn-red,
+.form-row .btn-blue,
+.form-row .btn-green{
+    padding: var(--special-padding);
+    border-radius: var(--special-radius);
+    font-size: var(--special-font-size);
+    color: #ffffff !important;
+    font-weight: 600;
+    border: none;
+    transition: all 0.22s ease;
+}
+.theme-switch-btn .btn-blue:hover,
+.form-row .btn-orange:hover,
+.form-row .btn-red:hover,
+.form-row .btn-blue:hover,
+.form-row .btn-green:hover{
+    filter: brightness(1.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="header-box">
+    <h1>西典学校排课系统</h1>
+    <div class="theme-switch-btn">
+        <button class="btn-blue" id="themeToggleBtn">切换深色/浅色模式</button>
+    </div>
+</div>
+
+<div class="top-operate">
+    <span>课表列表：</span>
+    <input type="text" id="newTableName" placeholder="新课表名称">
+    <select id="newTableBindClass">
+        <option value="">绑定班级</option>
+    </select>
+    <button class="btn-blue" onclick="addNewTable()">新建课表</button>
+    <button class="btn-red" onclick="delCurrentTable()">删除当前课表</button>
+    <button class="btn-orange" onclick="editCurrentTableBind()">修改绑定班级</button>
+</div>
+
+<div style="display:flex;align-items:center;gap:12px;margin:10px 0;flex-wrap:wrap;">
+    <span>当前课表：</span>
+    <span id="currentTableName" style="font-size:18px;font-weight:bold;color:#2563eb;"></span>
+    <select id="tableSelect" onchange="switchTable(this.value)" style="padding:6px 10px;font-size:16px;">
+    </select>
+</div>
+
+<div class="mode-view-bar" style="display:flex;gap:8px;margin-bottom:14px;">
+    <button onclick="undoStep()" class="tab-style-btn">← 上一步</button>
+    <button onclick="redoStep()" class="tab-style-btn next-step-btn">→ 下一步</button>
+    <button class="tab-style-btn" onclick="saveSnapshot()">保存</button>
+</div>
+
+<div class="tab-top">
+    <button class="active" onclick="switchTab('time',this)">课时时间设置</button>
+    <button onclick="switchTab('class',this)">学员组/班级</button>
+    <button onclick="switchTab('teacher',this)">教师管理</button>
+    <button onclick="switchTab('room',this)">教室/场地</button>
+    <button onclick="switchTab('course',this)">课程管理</button>
+    <button onclick="switchTab('schedule',this)">课表排课</button>
+</div>
+
+<div id="tab-time" class="tab-content active">
+    <div class="form-row">
+        <label>课时名称：</label>
+        <input type="text" id="timeName" placeholder="输入课时名称">
+        <select id="isSplitRow">
+            <option value="0">普通课时</option>
+            <option value="1">分割行(午休/晚饭)</option>
+        </select>
+        <button class="btn-blue" onclick="addTime()">添加课时</button>
+        <button class="btn-orange" onclick="exportTimeBackup()">导出当前课时</button>
+        <input type="file" id="timeBackupFile" accept=".json">
+        <button class="btn-orange" onclick="importTimeBackup()">导入课时</button>
+    </div>
+    <table>
+        <thead>
+        <tr>
+            <th>序号</th>
+            <th>课时名称</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="timeList"></tbody>
+    </table>
+</div>
+
+<div id="tab-class" class="tab-content">
+    <div class="form-row">
+        <label>班级名称：</label>
+        <input type="text" id="className" placeholder="输入班级名称">
+        <button class="btn-blue" onclick="addClass()">新增班级</button>
+        <button class="btn-orange" onclick="exportClassBackup()">导出班级</button>
+        <input type="file" id="classBackupFile" accept=".json">
+        <button class="btn-orange" onclick="importClassBackup()">导入班级</button>
+    </div>
+    <table>
+        <thead>
+        <tr>
+            <th>序号</th>
+            <th>班级名称</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="classList"></tbody>
+    </table>
+</div>
+
+<div id="tab-teacher" class="tab-content">
+    <div class="form-row">
+        <label>教师姓名：</label>
+        <input type="text" id="teacherName" placeholder="输入教师姓名">
+        <button class="btn-blue" onclick="addTeacher()">新增教师</button>
+        <button class="btn-orange" onclick="exportTeacherBackup()">导出教师</button>
+        <input type="file" id="teacherBackupFile" accept=".json">
+        <button class="btn-orange" onclick="importTeacherBackup()">导入教师</button>
+    </div>
+    <table>
+        <thead>
+        <tr>
+            <th>序号</th>
+            <th>教师姓名</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="teacherTableBody"></tbody>
+    </table>
+</div>
+
+<div id="tab-room" class="tab-content">
+    <div class="form-row">
+        <label>教室名称：</label>
+        <input type="text" id="roomName" placeholder="输入教室名称">
+        <button class="btn-blue" onclick="addRoom()">新增教室</button>
+        <button class="btn-orange" onclick="exportRoomBackup()">导出教室</button>
+        <input type="file" id="roomBackupFile" accept=".json">
+        <button class="btn-orange" onclick="importRoomBackup()">导入教室</button>
+    </div>
+    <table>
+        <thead>
+        <tr>
+            <th>序号</th>
+            <th>教室名称</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="roomTableBody"></tbody>
+    </table>
+</div>
+
+<div id="tab-course" class="tab-content">
+    <div class="form-row">
+        <label>课程名称：</label>
+        <select id="courseNameSelect">
+            <option value="">请选择课程名称</option>
+        </select>
+        <select id="courseTeacher">
+            <option value="">选择教师</option>
+        </select>
+        <select id="courseRoom">
+            <option value="">选择场地</option>
+        </select>
+        <select id="courseClass">
+            <option value="">选择学员组</option>
+        </select>
+        <button class="btn-blue" onclick="addCourse()">新增课程</button>
+        <button class="btn-orange" onclick="exportCourseBackup()">导出课程数据</button>
+        <input type="file" id="courseBackupFile" accept=".json">
+        <button class="btn-orange" onclick="importCourseBackup()">导入课程数据</button>
+    </div>
+    <table>
+        <thead>
+        <tr>
+            <th>序号</th>
+            <th>课程名称</th>
+            <th>教师</th>
+            <th>教室</th>
+            <th>班级</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="courseList"></tbody>
+    </table>
+</div>
+
+<div id="tab-schedule" class="tab-content">
+    <div class="mode-view-bar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <label>视图切换：</label>
+        <select id="viewSelect">
+            <option value="classView">学员组视图</option>
+            <option value="teacherView">教师视图</option>
+            <option value="roomView">场地视图</option>
+        </select>
+        <span>选择课程：</span>
+        <select id="courseSelect" onchange="saveLastSelectCourse(this.value)"></select>
+        <span>开始时间：</span>
+        <select id="startTimeSelect">
+            <option value="">请选择开始时间</option>
+        </select>
+        <span>结束时间：</span>
+        <select id="endTimeSelect">
+            <option value="">请选择结束时间</option>
+        </select>
+
+        <button class="tab-style-btn" onclick="clearCell()">清空单元格</button>
+        <button class="tab-style-btn" onclick="clearAllCurrentTable()">一键清空整张课表</button>
+        <button class="tab-style-btn" onclick="checkAllConflict()">全局冲突检测</button>
+        <button class="tab-style-btn" onclick="showConflictDetail()">查看冲突详情</button>
+        <button class="tab-style-btn" onclick="exportScheduleToExcel()">导出课表为Excel</button>
+        
+        <span>选择教师：</span>
+        <select id="exportTeacherSelect">
+            <option value="">请选择教师</option>
+        </select>
+        <button class="tab-style-btn" onclick="exportSelectedTeacherSchedule()">导出该教师课表Excel</button>
+        
+        <span>选择教室：</span>
+        <select id="exportRoomSelect">
+            <option value="">请选择教室</option>
+        </select>
+        <button class="tab-style-btn" onclick="exportSelectedRoomSchedule()">导出该教室占用Excel</button>
+        
+        <button class="tab-style-btn" onclick="printTable()">打印</button>
+</div>
+    <div id="conflictTip"></div>
+    <div class="form-row">
+      <button class="btn-orange" onclick="exportAllBackup()">导出全部备份</button>
+      <button class="btn-orange" onclick="exportCurrentTableBackup()">导出当前课表备份</button>
+      <input type="file" id="allBackupFile">
+      <button class="btn-orange" onclick="importAllBackup()">全局数据导入恢复</button>
+      <button class="btn-orange" onclick="importSingleTableBackup()">单课表导入恢复</button>
+      <button class="btn-red" onclick="resetAllData()">重置所有数据</button>
+        <span>备份包含所有课表数据</span>
+    </div>
+    <table id="scheduleTable">
+        <thead>
+        <tr>
+            <th>课时</th>
+            <th>周一</th>
+            <th>周二</th>
+            <th>周三</th>
+            <th>周四</th>
+            <th>周五</th>
+            <th>周六</th>
+            <th>周日</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div id="autoModal" class="modal-mask">
+    <div class="modal-wrap">
+        <div class="modal-title" id="modalTitle"></div>
+        <div id="modalBody"></div>
+        <div class="modal-footer" id="modalFooter">
+            <button onclick="closeAutoModal()">取消</button>
+        </div>
+    </div>
+</div>
+
+<script src="common.js"></script>
+<script src="baseManage.js"></script>
+<script src="scheduleRender.js"></script>
+<script>
+// 主题切换逻辑
+const THEME_STORAGE_KEY = 'schedule_theme_mode';
+const themeBtn = document.getElementById('themeToggleBtn');
+
+function initThemeMode(){
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    if(savedTheme === 'light'){
+        document.body.classList.add('light-mode');
+        themeBtn.innerText = '切换为深色模式';
+    }else{
+        document.body.classList.remove('light-mode');
+        themeBtn.innerText = '切换为浅色模式';
+    }
+}
+themeBtn.addEventListener('click',function(){
+    document.body.classList.toggle('light-mode');
+    if(document.body.classList.contains('light-mode')){
+        localStorage.setItem(THEME_STORAGE_KEY,'light');
+        this.innerText = '切换为深色模式';
+    }else{
+        localStorage.setItem(THEME_STORAGE_KEY,'dark');
+        this.innerText = '切换为浅色模式';
+    }
+});
+
+// 视图下拉切换绑定
+const viewSelect = document.getElementById('viewSelect');
+viewSelect.addEventListener('change',function(){
+    switchView(this.value);
+});
+
+// ===================== 防调试、禁用F12、右键 =====================
+document.oncontextmenu = function(){return false;};
+document.onkeydown = function(e){
+    if(e.key === 'F12'
+        || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key))
+        || (e.ctrlKey && ['u','s'].includes(e.key))
+    ) return false;
+};
+
+initThemeMode();
+
+let currentActiveTab = 'time';
+function switchTab(tabName,btnEl){
+    document.querySelectorAll('.tab-top button').forEach(btn=>btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tab=>tab.classList.remove('active'));
+    btnEl.classList.add('active');
+    document.getElementById('tab-'+tabName).classList.add('active');
+    currentActiveTab = tabName;
+    switch(tabName){
+        case 'time': renderTime(); break;
+        case 'class': renderClass(); break;
+        case 'teacher': renderTeacher(); break;
+        case 'room': renderRoom(); break;
+        case 'course':
+            renderCourse();
+            renderCourseNameSelect();
+            break;
+        case 'schedule':
+            renderSchedule();
+            checkAllConflict();
+            renderExportTeacherSelect();
+            renderExportRoomSelect();
+            break;
+    }
+}
+function closeAutoModal(){
+    document.getElementById('autoModal').style.display = 'none';
+}
+window.onload = function(){
+    initLocalStorage();
+    renderTableTags();
+    renderNewTableClassSelect();
+    renderTime();
+    renderClass();
+    renderTeacher();
+    renderRoom();
+    renderCourse();
+    renderCourseNameSelect();
+    renderCourseSelects();
+    renderSchedule();
+    checkAllConflict();
+    initTimeSelect();
+    document.getElementById('viewSelect').value = 'classView';
+    setTimeout(function(){
+        renderExportTeacherSelect();
+        renderExportTeacherSelect();
+        renderExportRoomSelect();
+    }, 150);
+}
+function printTable(){
+    window.print();
+}
+function exportAllBackup() {
+    try {
+        const allData = {
+            timeList: JSON.parse(localStorage.getItem('timeList') || '[]'),
+            classList: JSON.parse(localStorage.getItem('classList') || '[]'),
+            teacherList: JSON.parse(localStorage.getItem('teacherList') || '[]'),
+            roomList: JSON.parse(localStorage.getItem('roomList') || '[]'),
+            courseList: JSON.parse(localStorage.getItem('courseList') || '[]'),
+            tableList: JSON.parse(localStorage.getItem('tableList') || '[]'),
+            currentTableId: localStorage.getItem('currentTableId') || ''
+        };
+        const jsonStr = JSON.stringify(allData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `西典排课_全量备份_${new Date().getTime()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        alert('全量数据导出备份成功！');
+    } catch (e) {
+        console.error(e);
+        alert('导出失败：' + e.message);
+    }
+}
+</script>
+<audio id="clickAudio" src="dianji.mp3" preload="auto">
+<script>
+    const audio = document.getElementById('clickAudio');
+    audio.volume = 0.8;
+    document.addEventListener('click', function (e) {
+        const target = e.target;
+        if (target.tagName === 'BUTTON' || target.hasAttribute('onclick')) {
+            audio.currentTime = 0;
+            audio.play().catch(error => {});
+        }
+    });
+</script>
+</body>
+</html>
