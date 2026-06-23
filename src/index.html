@@ -477,7 +477,7 @@ body.light-mode .modal-footer button{
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -724,6 +724,29 @@ body.light-mode .modal-footer button{
 <script src="baseManage.js"></script>
 <script src="scheduleRender.js"></script>
 <script>
+// ========== Tauri 文件保存公共工具方法 ==========
+async function saveFileByTauri(fileName, blob) {
+    try {
+        const { save } = window.__TAURI__.dialog;
+        const { writeBinaryFile } = window.__TAURI__.fs;
+        const savePath = await save({
+            defaultPath: fileName,
+            filters: [
+                { name: "Excel表格", extensions: ["xls"] },
+                { name: "JSON备份文件", extensions: ["json"] }
+            ]
+        });
+        if (!savePath) return false;
+        const buf = await blob.arrayBuffer();
+        await writeBinaryFile(savePath, new Uint8Array(buf));
+        return true;
+    } catch (err) {
+        console.error("文件保存异常：", err);
+        alert("文件保存失败：" + err.message);
+        return false;
+    }
+}
+
 // 主题切换逻辑
 const THEME_STORAGE_KEY = 'schedule_theme_mode';
 const themeBtn = document.getElementById('themeToggleBtn');
@@ -817,7 +840,9 @@ window.onload = function(){
 function printTable(){
     window.print();
 }
-function exportAllBackup() {
+
+// 【已修改为Tauri导出】全量备份导出
+async function exportAllBackup() {
     try {
         const allData = {
             timeList: JSON.parse(localStorage.getItem('timeList') || '[]'),
@@ -830,14 +855,9 @@ function exportAllBackup() {
         };
         const jsonStr = JSON.stringify(allData, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `西典排课_全量备份_${new Date().getTime()}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-        alert('全量数据导出备份成功！');
+        const fileName = `西典排课_全量备份_${new Date().getTime()}.json`;
+        const ok = await saveFileByTauri(fileName, blob);
+        if (ok) alert('全量数据导出备份成功！');
     } catch (e) {
         console.error(e);
         alert('导出失败：' + e.message);
