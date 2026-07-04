@@ -30,7 +30,7 @@ function renderSchedule(){
         const isSplitRow = timeItem.isSplit;
         if(isSplitRow){
             html += `<tr class="split-row">
-                <td colspan="8" style="text-align:center;background:#f5f7fa;font-weight:500;color:#333;border-top:1px solid #ccc;">${timeStr}</td>
+                <td colspan="8">${timeStr}</td>
             </tr>`;
         }else{
             html+=`<tr><td>${timeStr}</td>`;
