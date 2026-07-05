@@ -1,5 +1,3 @@
-// 清空单元格模式标记
-let clearMode = false;
 // ===================== 【新增开始：时间工具函数】 =====================
 /**
  * 生成 08:00 ~ 22:30 间隔5分钟的时间选项数组
@@ -743,61 +741,31 @@ function delCurrentTable(){
     saveSnapshot();
 }
 
-// 开启批量清空单元格模式
-function clearCell(){
-    clearMode = true;
-    alert("已进入批量清空模式，点击任意单元格即可连续清空；点击课程格子自动退出清空模式");
-}
-
-/**
- * 课表单元格点击事件（已完整整合原有逻辑+批量清空，修复失效问题）
- * @param {number} row 行
- * @param {number} col 列
- */
-function cellClick(row, col){
-    const currTable = tableList.find(item => item.id === currentTableId);
-    if(!currTable) return alert("请先选择一张课表");
-
-    // 批量清空模式：连续点击可多次清空，不会自动关闭
-    if(clearMode){
-        const key = `${row}_${col}`;
-        delete currTable.data[key];
-        renderSchedule();
-        return;
-    }
-
-    // 正常排课：点击选课时自动退出清空模式
-    clearMode = false;
-
-    // 原有完整选课逻辑
-    const key = row + "_" + col;
-    const selectVal = lastSelectCourseValue;
-    if(!selectVal){
-        alert("请先在课程下拉框选择一门课程");
-        return;
-    }
-    saveLastSelectCourse(selectVal);
-    currTable.data[key] = selectVal;
-    renderSchedule();
-    checkAllConflict();
-}
 // 一键清空当前选中课表所有单元格数据
+let clearAllLock = false;
 function clearAllCurrentTable(){
+    if(clearAllLock) return;
     if(!currentTableId){
         return alert("请先选中一张课表再操作");
+    }
+    const currTable = tableList.find(t => t.id === currentTableId);
+    if(!currTable) return;
+    const hasData = currTable.data && Object.keys(currTable.data).some(function(k){
+        return currTable.data[k];
+    });
+    if(!hasData){
+        return alert("当前课表没有课程数据，无需清空");
     }
     if(!confirm("确定要清空当前这张课表所有课程数据吗？该操作不可撤销！")){
         return;
     }
-    // 只清空当前课表，其他课表完全不受影响
-    const currTable = tableList.find(t => t.id === currentTableId);
-    if(currTable){
-        currTable.data = {};
-        renderSchedule();
-        checkAllConflict();
-        saveSnapshot();
-        alert("当前课表已全部清空");
-    }
+    clearAllLock = true;
+    currTable.data = {};
+    if(typeof exitClearCellMode === 'function') exitClearCellMode();
+    renderSchedule();
+    checkAllConflict();
+    saveSnapshot();
+    setTimeout(function(){ clearAllLock = false; }, 300);
 }
 // 导出当前课表为Excel（带全边框+规范排版+边距适配）
 // 导出当前课表为Excel（打印居中+单页适配+全边框+规范排版）
