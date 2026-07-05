@@ -488,15 +488,6 @@ function normalizeSavePath(filePath){
     return p;
 }
 
-function ensureFileExtension(filePath, extensions){
-    const ext = (extensions && extensions[0] || '').replace(/^\./, '').toLowerCase();
-    if(!ext || !filePath) return filePath;
-    const lastSep = Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/'));
-    const name = filePath.slice(lastSep + 1);
-    if(name.includes('.')) return filePath;
-    return filePath + '.' + ext;
-}
-
 async function tauriPickSavePath(defaultFilename, extensions){
     const tauri = window.__TAURI__;
     if(!tauri) return undefined;
@@ -527,25 +518,6 @@ async function tauriPickSavePath(defaultFilename, extensions){
 async function tauriWriteContent(path, text){
     const normalizedPath = normalizeSavePath(path);
     if(!normalizedPath) return false;
-
-    // Windows：仅用 invoke 写入，避免 fs 插件绝对路径导致闪退
-    if(isWindowsDesktop()){
-        await delay(250);
-        const tauri = window.__TAURI__;
-        try{
-            if(tauri?.core?.invoke){
-                await tauri.core.invoke('plugin:fs|write_text_file', {
-                    path: normalizedPath,
-                    contents: text
-                });
-                return true;
-            }
-        }catch(err){
-            console.warn('Windows write failed:', err);
-        }
-        return false;
-    }
-
     const tauri = window.__TAURI__;
     const bytes = new TextEncoder().encode(text);
     try{
@@ -578,7 +550,7 @@ async function browserPickSaveBlob(blob, defaultFilename, extensions){
     try{
         const handle = await window.showSaveFilePicker({
             suggestedName: sanitizeDefaultFilename(defaultFilename),
-            types: [{ description: ext.toUpperCase() + ' 文件', accept: { [mime]: ['.' + ext] } }]
+            types: [{ description: ext.toUpperCase() + ' 文件', accept: { [mime]: ['.' + ext], 'application/octet-stream': ['.' + ext] } }]
         });
         const writable = await handle.createWritable();
         await writable.write(blob);
@@ -605,6 +577,91 @@ function browserDownloadFallback(blob, defaultFilename){
     }, 200);
 }
 
+function extractBasename(filePath){
+    if(!filePath) return '';
+    return filePath.split(/[/\\]/).pop() || '';
+}
+
+function ensureFileExtension(filePath, extensions){
+    const ext = (extensions && extensions[0] || '').replace(/^\./, '').toLowerCase();
+    if(!ext || !filePath) return filePath;
+    const lastSep = Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/'));
+    const dir = lastSep >= 0 ? filePath.slice(0, lastSep + 1) : '';
+    let name = lastSep >= 0 ? filePath.slice(lastSep + 1) : filePath;
+    const dot = name.lastIndexOf('.');
+    if(dot > 0) name = name.slice(0, dot);
+    name = name.replace(/[\s.]+$/, '').replace(/[<>:"|?*]/g, '_');
+    if(!name) name = 'export';
+    return dir + name + '.' + ext;
+}
+
+function buildWindowsPathCandidates(path, extensions){
+    const list = [
+        path,
+        normalizeSavePath(path),
+        ensureFileExtension(path, extensions),
+        ensureFileExtension(normalizeSavePath(path), extensions),
+        path.replace(/\//g, '\\')
+    ];
+    const seen = new Set();
+    return list.filter(function(p){
+        if(!p || seen.has(p)) return false;
+        seen.add(p);
+        return true;
+    });
+}
+
+async function tryWindowsTauriWrite(path, text, extensions){
+    const tauri = window.__TAURI__;
+    if(!tauri?.core?.invoke) return false;
+    const candidates = buildWindowsPathCandidates(path, extensions);
+    for(let i = 0; i < candidates.length; i++){
+        const p = candidates[i];
+        const payloads = [
+            { path: p, contents: text },
+            { path: p, contents: text, options: { create: true } },
+            { filePath: p, contents: text }
+        ];
+        for(let j = 0; j < payloads.length; j++){
+            try{
+                await tauri.core.invoke('plugin:fs|write_text_file', payloads[j]);
+                return true;
+            }catch(e1){
+                try{
+                    const bytes = Array.from(new TextEncoder().encode(text));
+                    await tauri.core.invoke('plugin:fs|write_file', { path: p, contents: bytes });
+                    return true;
+                }catch(e2){}
+            }
+        }
+    }
+    return false;
+}
+
+async function saveFileWindowsDesktop(text, safeFilename, blob, extensions){
+    // 方案 A：系统文件选择器 + JS 直接写入（改名也稳定，不走 Rust fs）
+    if(typeof window.showSaveFilePicker === 'function'){
+        const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
+        if(fsaResult === true) return true;
+        if(fsaResult === false) return false;
+    }
+
+    // 方案 B：Tauri 保存对话框 + 多种安全写入尝试
+    const path = await tauriPickSavePath(safeFilename, extensions);
+    if(path === null) return false;
+    if(!path) return null;
+
+    await delay(350);
+    const ok = await tryWindowsTauriWrite(path, text, extensions);
+    if(ok) return true;
+
+    // 方案 C：写入失败时，用用户选择的文件名保存到默认下载目录（保证能导出）
+    const chosenName = sanitizeDefaultFilename(extractBasename(path) || safeFilename);
+    browserDownloadFallback(blob, ensureFileExtension(chosenName, extensions).split(/[/\\]/).pop());
+    alert('无法保存到所选文件夹，文件已导出到默认下载目录：\n' + chosenName);
+    return true;
+}
+
 /**
  * 保存文件并让用户选择保存位置
  * @returns {Promise<boolean|null>} true=成功, false=用户取消, null=失败
@@ -620,11 +677,8 @@ async function saveFileWithPicker(content, defaultFilename, options){
     }
     const blob = new Blob([text], { type: mimeType });
 
-    // Windows 桌面版：优先用系统文件选择器（JS 写入），规避 Tauri 改名保存闪退
     if(isWindowsDesktop()){
-        const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
-        if(fsaResult === true) return true;
-        if(fsaResult === false) return false;
+        return await saveFileWindowsDesktop(text, safeFilename, blob, extensions);
     }
 
     if(isDesktopApp()){
@@ -633,10 +687,6 @@ async function saveFileWithPicker(content, defaultFilename, options){
         if(path){
             const ok = await tauriWriteContent(path, text);
             if(ok) return true;
-            if(isWindowsDesktop()){
-                alert('保存失败。请尝试不修改文件名，或更新到最新打包版本后再试。');
-                return null;
-            }
             alert('保存失败，请检查应用是否有写入文件的权限');
             return null;
         }
