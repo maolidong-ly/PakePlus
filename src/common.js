@@ -445,30 +445,79 @@ function isDesktopApp(){
     return typeof window.__TAURI__ !== 'undefined';
 }
 
+function isWindowsDesktop(){
+    return isDesktopApp() && /Windows/i.test(navigator.userAgent || '');
+}
+
+function delay(ms){
+    return new Promise(function(resolve){ setTimeout(resolve, ms); });
+}
+
 function buildSaveFilters(extensions){
     if(!extensions || !extensions.length) return undefined;
     const extList = extensions.map(e => String(e).replace(/^\./, ''));
     return [{ name: '文件', extensions: extList }];
 }
 
+function parseTauriSavePath(result){
+    if(result == null) return null;
+    if(typeof result === 'string') return result.trim() || null;
+    if(Array.isArray(result) && result.length) return parseTauriSavePath(result[0]);
+    if(typeof result === 'object'){
+        if(typeof result.path === 'string') return result.path.trim() || null;
+        if(typeof result.filePath === 'string') return result.filePath.trim() || null;
+    }
+    return null;
+}
+
+function sanitizeDefaultFilename(name){
+    return String(name || 'export').replace(/[\\/:*?"<>|]/g, '_').replace(/[\s.]+$/, '');
+}
+
+function normalizeSavePath(filePath){
+    if(!filePath || typeof filePath !== 'string') return filePath;
+    let p = filePath.trim();
+    if(isWindowsDesktop()){
+        p = p.replace(/\//g, '\\');
+        const sepIdx = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
+        const dir = sepIdx >= 0 ? p.slice(0, sepIdx + 1) : '';
+        let name = sepIdx >= 0 ? p.slice(sepIdx + 1) : p;
+        name = name.replace(/[\s.]+$/, '').replace(/[<>:"|?*]/g, '_');
+        p = dir + name;
+    }
+    return p;
+}
+
+function ensureFileExtension(filePath, extensions){
+    const ext = (extensions && extensions[0] || '').replace(/^\./, '').toLowerCase();
+    if(!ext || !filePath) return filePath;
+    const lastSep = Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/'));
+    const name = filePath.slice(lastSep + 1);
+    if(name.includes('.')) return filePath;
+    return filePath + '.' + ext;
+}
+
 async function tauriPickSavePath(defaultFilename, extensions){
     const tauri = window.__TAURI__;
     if(!tauri) return undefined;
+    const safeName = sanitizeDefaultFilename(defaultFilename);
     const opts = {
-        defaultPath: defaultFilename,
+        defaultPath: safeName,
         filters: buildSaveFilters(extensions)
     };
     try{
-        if(tauri.dialog?.save) return await tauri.dialog.save(opts);
-        if(tauri.core?.invoke){
+        let result;
+        if(tauri.dialog?.save) result = await tauri.dialog.save(opts);
+        else if(tauri.core?.invoke){
             try{
-                return await tauri.core.invoke('plugin:dialog|save', { options: opts });
+                result = await tauri.core.invoke('plugin:dialog|save', { options: opts });
             }catch(e1){
-                try{
-                    return await tauri.core.invoke('dialog_save', opts);
-                }catch(e2){}
+                result = await tauri.core.invoke('dialog_save', opts);
             }
         }
+        const path = parseTauriSavePath(result);
+        if(!path) return path === null ? null : undefined;
+        return ensureFileExtension(normalizeSavePath(path), extensions);
     }catch(err){
         console.warn('Tauri save dialog failed:', err);
     }
@@ -476,29 +525,44 @@ async function tauriPickSavePath(defaultFilename, extensions){
 }
 
 async function tauriWriteContent(path, text){
+    const normalizedPath = normalizeSavePath(path);
+    if(!normalizedPath) return false;
+
+    // Windows：仅用 invoke 写入，避免 fs 插件绝对路径导致闪退
+    if(isWindowsDesktop()){
+        await delay(250);
+        const tauri = window.__TAURI__;
+        try{
+            if(tauri?.core?.invoke){
+                await tauri.core.invoke('plugin:fs|write_text_file', {
+                    path: normalizedPath,
+                    contents: text
+                });
+                return true;
+            }
+        }catch(err){
+            console.warn('Windows write failed:', err);
+        }
+        return false;
+    }
+
     const tauri = window.__TAURI__;
     const bytes = new TextEncoder().encode(text);
     try{
         if(tauri.fs?.writeTextFile){
-            await tauri.fs.writeTextFile(path, text);
+            await tauri.fs.writeTextFile(normalizedPath, text);
             return true;
         }
         if(tauri.fs?.writeFile){
-            await tauri.fs.writeFile(path, bytes);
+            await tauri.fs.writeFile(normalizedPath, bytes);
             return true;
         }
         if(tauri.core?.invoke){
-            const invokes = [
-                ['plugin:fs|write_text_file', { path, contents: text }],
-                ['write_text_file', { path, content: text }],
-                ['write_file', { path, contents: text }]
-            ];
-            for(const [cmd, args] of invokes){
-                try{
-                    await tauri.core.invoke(cmd, args);
-                    return true;
-                }catch(e){}
-            }
+            await tauri.core.invoke('plugin:fs|write_text_file', {
+                path: normalizedPath,
+                contents: text
+            });
+            return true;
         }
     }catch(err){
         console.warn('Tauri write file failed:', err);
@@ -513,7 +577,7 @@ async function browserPickSaveBlob(blob, defaultFilename, extensions){
     const mime = mimeMap[ext] || blob.type || 'application/octet-stream';
     try{
         const handle = await window.showSaveFilePicker({
-            suggestedName: defaultFilename,
+            suggestedName: sanitizeDefaultFilename(defaultFilename),
             types: [{ description: ext.toUpperCase() + ' 文件', accept: { [mime]: ['.' + ext] } }]
         });
         const writable = await handle.createWritable();
@@ -532,7 +596,7 @@ function browserDownloadFallback(blob, defaultFilename){
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
-    a.download = defaultFilename;
+    a.download = sanitizeDefaultFilename(defaultFilename);
     document.body.appendChild(a);
     a.click();
     setTimeout(function(){
@@ -549,24 +613,36 @@ async function saveFileWithPicker(content, defaultFilename, options){
     options = options || {};
     const extensions = options.extensions || [defaultFilename.split('.').pop()].filter(Boolean);
     const mimeType = options.mimeType || 'application/octet-stream';
+    const safeFilename = sanitizeDefaultFilename(defaultFilename);
     let text = content instanceof Blob ? await content.text() : String(content);
     if(options.utf8Bom && text.charCodeAt(0) !== 0xFEFF){
         text = '\uFEFF' + text;
     }
     const blob = new Blob([text], { type: mimeType });
 
+    // Windows 桌面版：优先用系统文件选择器（JS 写入），规避 Tauri 改名保存闪退
+    if(isWindowsDesktop()){
+        const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
+        if(fsaResult === true) return true;
+        if(fsaResult === false) return false;
+    }
+
     if(isDesktopApp()){
-        const path = await tauriPickSavePath(defaultFilename, extensions);
+        const path = await tauriPickSavePath(safeFilename, extensions);
         if(path === null) return false;
         if(path){
             const ok = await tauriWriteContent(path, text);
             if(ok) return true;
+            if(isWindowsDesktop()){
+                alert('保存失败。请尝试不修改文件名，或更新到最新打包版本后再试。');
+                return null;
+            }
             alert('保存失败，请检查应用是否有写入文件的权限');
             return null;
         }
     }
 
-    const fsaResult = await browserPickSaveBlob(blob, defaultFilename, extensions);
+    const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
     if(fsaResult === true) return true;
     if(fsaResult === false) return false;
 
@@ -577,7 +653,7 @@ async function saveFileWithPicker(content, defaultFilename, options){
     if(typeof window.showSaveFilePicker !== 'function'){
         alert('当前浏览器不支持选择保存位置，文件将保存到默认下载文件夹');
     }
-    browserDownloadFallback(blob, defaultFilename);
+    browserDownloadFallback(blob, safeFilename);
     return true;
 }
 
