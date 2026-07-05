@@ -2434,7 +2434,7 @@ body.light-mode .occ-free-chip{
             </div>
             <div class="dock-field dock-field-wide">
                 <span class="dock-label">课程</span>
-                <select id="courseSelect" onchange="saveLastSelectCourse(this.value)"></select>
+                <select id="courseSelect" onfocus="exitClearCellMode()" onchange="saveLastSelectCourse(this.value)"></select>
             </div>
             <div class="dock-field">
                 <span class="dock-label">开始时间</span>
