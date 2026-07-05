@@ -1,9 +1,12 @@
-// 一机一码授权（需 PakePlus 打包并注入 Rust 命令 get_machine_id / verify_license）
+// 一机一码授权（PakePlus 桌面版自动生效；Rust 命令可选，未注入时使用 JS 方案）
 const LICENSE_STORAGE_KEY = 'schedule_license_key';
 const LICENSE_MACHINE_KEY = 'schedule_license_machine';
 const LICENSE_TRIAL_START_KEY = 'schedule_trial_start';
+const LICENSE_DEVICE_UUID_KEY = 'schedule_device_uuid';
 const TRIAL_DAYS = 100;
 const MS_PER_DAY = 86400000;
+// 与 tools/generate_license.py 中 LICENSE_SECRET 保持一致
+const LICENSE_SECRET = 'XidianSchedule-L1-x8k2m9p4q7w3n6r';
 
 function normalizeLicenseCode(code){
     return (code || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
@@ -13,6 +16,67 @@ function formatLicenseDisplay(code){
     const raw = normalizeLicenseCode(code);
     if(raw.length !== 16) return (code || '').trim().toUpperCase();
     return raw.match(/.{1,4}/g).join('-');
+}
+
+function formatHexCode(hex){
+    const h = hex.slice(0, 16).toUpperCase();
+    return h.match(/.{1,4}/g).join('-');
+}
+
+function isPackagedDesktop(){
+    if(typeof window.__TAURI__ !== 'undefined') return true;
+    const ua = navigator.userAgent || '';
+    if(/\bTauri\b/i.test(ua)) return true;
+    const host = location.hostname || '';
+    if(host === 'tauri.localhost' || host === 'asset.localhost') return true;
+    if(location.protocol === 'tauri:') return true;
+    return false;
+}
+
+function getOrCreateDeviceUuid(){
+    let id = localStorage.getItem(LICENSE_DEVICE_UUID_KEY);
+    if(!id){
+        id = (crypto.randomUUID && crypto.randomUUID()) || ('dev-' + Date.now() + '-' + Math.random());
+        localStorage.setItem(LICENSE_DEVICE_UUID_KEY, id);
+    }
+    return id;
+}
+
+async function sha256Hex(text){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(function(b){
+        return b.toString(16).padStart(2, '0');
+    }).join('').toUpperCase();
+}
+
+async function hmacSha256Hex(key, message){
+    const enc = new TextEncoder();
+    const cryptoKey = await crypto.subtle.importKey(
+        'raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const sig = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message));
+    return Array.from(new Uint8Array(sig)).map(function(b){
+        return b.toString(16).padStart(2, '0');
+    }).join('').toUpperCase();
+}
+
+async function getJsMachineId(){
+    const raw = [
+        getOrCreateDeviceUuid(),
+        navigator.platform || '',
+        navigator.language || '',
+        screen.width + 'x' + screen.height + 'x' + (screen.pixelDepth || screen.colorDepth || 0),
+        String(navigator.hardwareConcurrency || 0),
+        (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
+    ].join('|');
+    const hash = await sha256Hex(raw);
+    return formatHexCode(hash);
+}
+
+async function computeLicenseLocal(machineId){
+    const mid = normalizeLicenseCode(machineId);
+    const hex = await hmacSha256Hex(LICENSE_SECRET, mid);
+    return formatHexCode(hex);
 }
 
 async function tauriInvoke(cmd, args){
@@ -27,16 +91,27 @@ async function tauriInvoke(cmd, args){
 }
 
 async function fetchMachineId(){
-    const id = await tauriInvoke('get_machine_id');
-    return typeof id === 'string' && id.trim() ? id.trim().toUpperCase() : null;
+    const rustId = await tauriInvoke('get_machine_id');
+    if(typeof rustId === 'string' && rustId.trim()){
+        return rustId.trim().toUpperCase();
+    }
+    if(isPackagedDesktop()){
+        return await getJsMachineId();
+    }
+    if(location.protocol === 'file:' || location.protocol === 'http:' || location.protocol === 'https:'){
+        return await getJsMachineId();
+    }
+    return null;
 }
 
 async function verifyLicenseRemote(machineId, licenseKey){
-    const result = await tauriInvoke('verify_license', {
+    const rust = await tauriInvoke('verify_license', {
         machineId: machineId,
         licenseKey: licenseKey
     });
-    return result === true;
+    if(rust === true || rust === false) return rust;
+    const expected = await computeLicenseLocal(machineId);
+    return normalizeLicenseCode(licenseKey) === normalizeLicenseCode(expected);
 }
 
 function getTrialRecord(){
@@ -84,7 +159,7 @@ function updateLicenseStatusBadge(status, daysLeft){
     if(status === 'trial' && daysLeft > 0){
         badge.style.display = 'inline-flex';
         badge.textContent = daysLeft + ' 天试用';
-        badge.title = '试用期剩余 ' + daysLeft + ' 天，到期后需输入激活码。点击可打开激活窗口';
+        badge.title = '试用期剩余 ' + daysLeft + ' 天，到期后需输入激活码。点击可提前激活';
         badge.onclick = openLicenseModalForActivate;
         return;
     }
@@ -99,15 +174,13 @@ function showLicenseModal(mode){
     const machineWrap = document.getElementById('licenseMachineWrap');
     if(!mask) return;
     mask.style.display = 'flex';
-    if(machineWrap) machineWrap.style.display = mode === 'desktop-required' ? 'none' : '';
-    if(inputWrap) inputWrap.style.display = mode === 'desktop-required' ? 'none' : '';
+    if(machineWrap) machineWrap.style.display = '';
+    if(inputWrap) inputWrap.style.display = '';
     if(hint){
-        if(mode === 'desktop-required'){
-            hint.textContent = '当前为浏览器预览模式，授权与试用期仅在 PakePlus 打包后的桌面版中生效。';
-        }else if(mode === 'trial-expired'){
+        if(mode === 'trial-expired'){
             hint.textContent = '100 天试用期已结束，请输入激活码继续使用。请将机器码发给管理员获取激活码。';
         }else{
-            hint.textContent = '请将下方机器码发给管理员，获取激活码后输入。每台电脑仅可使用一个激活码。';
+            hint.textContent = '首次使用自动享有 100 天试用。如需永久授权，请将机器码发给管理员获取激活码。';
         }
     }
 }
@@ -118,12 +191,11 @@ function hideLicenseModal(){
 }
 
 async function openLicenseModalForActivate(){
-    const machineId = await fetchMachineId();
     const machineEl = document.getElementById('licenseMachineId');
+    const machineId = await fetchMachineId();
     if(!machineId){
-        if(machineEl) machineEl.textContent = '—';
-        showLicenseModal('desktop-required');
-        return;
+        if(machineEl) machineEl.textContent = '读取失败';
+        return alert('无法生成本机机器码，请重新打开软件后再试。');
     }
     if(machineEl) machineEl.textContent = machineId;
     const daysLeft = getTrialDaysLeft(machineId);
@@ -148,8 +220,7 @@ function copyMachineId(){
 async function submitLicenseActivation(){
     const machineId = await fetchMachineId();
     if(!machineId){
-        alert('无法读取机器码，请确认使用的是 PakePlus 打包后的桌面版，且已注入 Rust 授权命令。');
-        return;
+        return alert('无法读取机器码，请重新打开软件后再试。');
     }
     const input = document.getElementById('licenseKeyInput');
     const licenseKey = formatLicenseDisplay(input?.value || '');
@@ -173,8 +244,8 @@ async function initLicenseCheck(){
     const machineId = await fetchMachineId();
 
     if(!machineId){
-        if(machineEl) machineEl.textContent = '—';
-        showLicenseModal('desktop-required');
+        if(machineEl) machineEl.textContent = '读取失败';
+        alert('授权模块初始化失败，请重新打开软件。');
         return false;
     }
 
