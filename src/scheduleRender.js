@@ -60,11 +60,40 @@ function renderSchedule(){
     tbody.innerHTML=html;
 }
 
+// ========== 连续清空单元格模式 ==========
+let clearMode = false;
+
+function enterClearCellMode(){
+    if(!currentTableId) return alert("暂无选中课表");
+    clearMode = true;
+    alert("已进入连续清空模式：点击单元格即可清除内容；点击排课设置中的【课程】下拉框后退出");
+}
+
+function exitClearCellMode(){
+    clearMode = false;
+}
+
+function clearCell(){
+    enterClearCellMode();
+}
+
 // ========== 单元格操作 ==========
 function clickCell(cell){
     if(!currentTableId) return alert("暂无选中课表，无法排课");
-    activeCell=cell;
+
     const key = cell.dataset.key;
+
+    if(clearMode){
+        const schedule = getCurrentTableData();
+        delete schedule[key];
+        saveCurrentTableData(schedule);
+        saveSnapshot();
+        renderSchedule();
+        checkAllConflict();
+        return;
+    }
+
+    activeCell=cell;
     // 【优化：点击单元格自动预填充当前行默认时间段，不用每次手动选择】
     const [rowIdx] = key.split('-').map(Number);
     const timeArr = getTimeData();
@@ -95,18 +124,6 @@ function clickCell(cell){
     // 【关键】不清空课程，实现连续排课不用重复选
     // document.getElementById("courseSelect").value = "";
 
-    renderSchedule();
-    checkAllConflict();
-}
-
-function clearCell(){
-    if(!currentTableId) return alert("暂无选中课表");
-    if(!activeCell)return alert("请先点击单元格");
-    let key=activeCell.dataset.key;
-    let schedule=getCurrentTableData();
-    schedule[key]="";
-    saveCurrentTableData(schedule);
-    saveSnapshot();
     renderSchedule();
     checkAllConflict();
 }
