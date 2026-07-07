@@ -2051,6 +2051,181 @@ body.light-mode .occ-free-chip{
     background: rgba(251, 191, 36, 0.2);
 }
 
+/* ========== 用户登录 ========== */
+.login-mask{
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(8px);
+    z-index: 99998;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.login-box{
+    background: var(--bg-elevated, #1a2234);
+    padding: 32px 36px;
+    border-radius: var(--radius-lg, 16px);
+    width: min(420px, 92vw);
+    border: 1px solid var(--border, rgba(148,163,184,0.12));
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    animation: modalIn 0.35s ease;
+}
+.login-box h3{
+    margin-bottom: 12px;
+    color: var(--primary-light, #60a5fa);
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+}
+.login-hint{
+    font-size: 13px;
+    color: var(--text-muted, #8b9cb3);
+    line-height: 1.6;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.login-field{
+    margin-bottom: 14px;
+}
+.login-field label{
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted, #8b9cb3);
+    margin-bottom: 6px;
+}
+.login-field input{
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border, rgba(148,163,184,0.12));
+    border-radius: var(--radius-sm, 8px);
+    font-size: 14px;
+    background: var(--bg-panel, rgba(18,24,38,0.72));
+    color: var(--text-color, #e8edf5);
+    outline: none;
+    font-family: var(--font-ui);
+}
+.login-field input:focus{
+    border-color: var(--primary-light, #60a5fa);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+.login-actions{
+    margin-top: 22px;
+}
+#loginSetupExtra{
+    display: none;
+}
+.login-submit-btn{
+    width: 100%;
+    padding: 13px 20px;
+    border: none;
+    border-radius: var(--radius-sm, 8px);
+    background: linear-gradient(135deg, var(--primary, #2563eb), var(--primary-light, #60a5fa));
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: var(--transition);
+}
+.login-submit-btn:hover{
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+.header-user-label{
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-pill);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+}
+.header-user-label::before{
+    content: '👤';
+    font-size: 12px;
+}
+.user-manage-wrap{
+    min-width: min(520px, 92vw);
+    max-width: 560px;
+}
+.user-manage-section{
+    margin-bottom: 22px;
+}
+.user-manage-section h4{
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 12px;
+}
+.user-manage-list{
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.user-manage-row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+}
+.user-manage-row:last-child{
+    border-bottom: none;
+}
+.user-manage-name{
+    font-weight: 500;
+}
+.user-manage-self{
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.user-manage-del{
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+}
+.user-manage-empty{
+    padding: 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+.user-manage-form{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.user-manage-form input{
+    flex: 1;
+    min-width: 120px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    color: var(--text-color);
+    font-family: var(--font-ui);
+    font-size: 13px;
+}
+.user-manage-form input:focus{
+    outline: none;
+    border-color: var(--primary-light);
+}
+.user-manage-note{
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-top: 8px;
+}
+
 /* 椭圆按钮 */
 .theme-switch-btn .btn-blue,
 .form-row .btn-orange,
@@ -2108,6 +2283,31 @@ body.light-mode .occ-free-chip{
     </div>
 </div>
 
+<!-- 用户登录 -->
+<div class="login-mask" id="loginMask" data-mode="login">
+    <div class="login-box">
+        <h3 id="loginTitle">用户登录</h3>
+        <p class="login-hint" id="loginHint">请输入用户名和密码登录系统。</p>
+        <div class="login-field">
+            <label for="loginUsername">用户名</label>
+            <input type="text" id="loginUsername" placeholder="用户名" maxlength="40" autocomplete="username" onkeydown="onLoginInputKeydown(event)">
+        </div>
+        <div class="login-field">
+            <label for="loginPassword">密码</label>
+            <input type="password" id="loginPassword" placeholder="密码" maxlength="64" autocomplete="current-password" onkeydown="onLoginInputKeydown(event)">
+        </div>
+        <div id="loginSetupExtra">
+            <div class="login-field">
+                <label for="loginPasswordConfirm">确认密码</label>
+                <input type="password" id="loginPasswordConfirm" placeholder="再次输入密码" maxlength="64" autocomplete="new-password" onkeydown="onLoginInputKeydown(event)">
+            </div>
+        </div>
+        <div class="login-actions">
+            <button type="button" class="login-submit-btn" id="loginSubmitBtn" onclick="submitLoginForm()">登录</button>
+        </div>
+    </div>
+</div>
+
 <div class="app-shell">
 
 <header class="app-header">
@@ -2139,6 +2339,9 @@ body.light-mode .occ-free-chip{
     </div>
     <div class="header-actions">
         <span id="licenseTrialBadge" class="license-trial-badge" title="试用期"></span>
+        <span id="currentUserLabel" class="header-user-label" title="当前登录用户"></span>
+        <button class="btn-ghost" type="button" onclick="openUserManageModal()" title="添加或删除用户、修改密码">用户管理</button>
+        <button class="btn-ghost" type="button" onclick="logoutUser()" title="退出当前登录">退出登录</button>
         <button class="btn-ghost" id="themeToggleBtn" title="切换主题">主题</button>
         <button class="btn-exit" type="button" onclick="openExitConfirm()">退出</button>
     </div>
@@ -2648,6 +2851,37 @@ body.light-mode .occ-free-chip{
     </div>
 </div>
 
+<div id="userManageModal" class="modal-mask" onclick="if(event.target===this)closeUserManageModal()">
+    <div class="modal-wrap user-manage-wrap" onclick="event.stopPropagation()">
+        <div class="modal-title">用户管理</div>
+        <div class="user-manage-section">
+            <h4>已有用户</h4>
+            <div id="userManageList" class="user-manage-list"></div>
+            <p class="user-manage-note">密码保存在本机浏览器中，仅作简单访问控制，请勿用于高安全场景。</p>
+        </div>
+        <div class="user-manage-section">
+            <h4>添加用户</h4>
+            <div class="user-manage-form">
+                <input type="text" id="newAuthUsername" placeholder="用户名" maxlength="40">
+                <input type="password" id="newAuthPassword" placeholder="密码" maxlength="64">
+                <button type="button" class="sab-btn sab-btn-primary" onclick="addAuthUserFromForm()">添加</button>
+            </div>
+        </div>
+        <div class="user-manage-section">
+            <h4>修改我的密码</h4>
+            <div class="user-manage-form">
+                <input type="password" id="changeOldPassword" placeholder="原密码" maxlength="64">
+                <input type="password" id="changeNewPassword" placeholder="新密码" maxlength="64">
+                <input type="password" id="changeNewPasswordConfirm" placeholder="确认新密码" maxlength="64">
+                <button type="button" class="sab-btn" onclick="changeOwnPassword()">修改</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" onclick="closeUserManageModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
 <div id="exitModal" class="modal-mask">
     <div class="modal-wrap exit-modal-wrap">
         <div class="modal-title">退出前请备份数据</div>
@@ -2669,6 +2903,7 @@ body.light-mode .occ-free-chip{
 
 <script src="common.js"></script>
 <script src="license.js"></script>
+<script src="auth.js"></script>
 <script src="baseManage.js"></script>
 <script src="scheduleRender.js"></script>
 <script src="autoSchedule.js"></script>
@@ -2754,7 +2989,8 @@ function closeAutoModal(){
     document.getElementById('autoModal').style.display = 'none';
 }
 window.onload = async function(){
-    await initLicenseCheck();
+    const licensed = await initLicenseCheck();
+    if(licensed && typeof initAuthCheck === 'function') initAuthCheck();
     initLocalStorage();
     if(typeof applyAppBranding === 'function') applyAppBranding();
     renderTableTags();
