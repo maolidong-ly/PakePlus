@@ -707,52 +707,39 @@ async function saveFileWithPicker(content, defaultFilename, options){
     return true;
 }
 
-// ========== 仅导出【当前课表】的课时备份（不再全局导出） ==========
-async function exportTimeBackup(){
-    const table = getCurrentTableInfo();
-    const filename = `${table.name}_课时备份_${new Date().getTime()}.json`;
-    const saved = await saveFileWithPicker(
-        JSON.stringify(table.timeList, null, 2),
-        filename,
-        { extensions: ['json'], mimeType: 'application/json' }
-    );
-    if(saved) alert("✅ 当前课表课时数据导出完成，仅备份本班级课时，不会影响其他课表");
-}
-// 导入课时：仅覆盖当前选中课表的课时，不影响全局、其他班级
-function importTimeBackup(){
-    const file = document.getElementById("timeBackupFile").files[0];
-    if(!file) return alert("请选择备份文件");
-    const reader = new FileReader();
-    reader.onload = e=>{
-        try{
-            const arr = JSON.parse(e.target.result);
-            const fixArr = arr.map(item=>typeof item==='string'?{name:item,isSplit:false}:item);
-            const table = getCurrentTableInfo();
-            table.timeList = fixArr;
-            saveTableList();
-            renderTime();
-            renderSchedule();
-            checkAllConflict();
-            alert("✅ 仅当前选中课表课时导入成功，其他班级课表结构不受影响");
-        }catch(err){
-            alert("❌ 文件格式错误，请选择正确的课时备份JSON文件");
-        }
-    };
-    reader.readAsText(file);
-}
-
 // ========== 课时模版管理（全局保存，新建课表时可选用） ==========
 function saveTimeAsTemplate(){
     if(!currentTableId) return alert("请先选中一张课表");
+    const timeList = JSON.parse(JSON.stringify(getTimeData()));
+    if(!timeList.length) return alert("当前课表没有课时，无法保存模版");
+
+    const selectDom = document.getElementById('timeTemplateSelect');
+    const idx = selectDom ? selectDom.value : '';
+    if(idx !== '' && timeTemplateList[idx]){
+        const name = timeTemplateList[idx].name;
+        if(confirm('是否更新模版「' + name + '」？\n点「取消」可另存为新模版。')){
+            timeTemplateList[idx].timeList = timeList;
+            saveTimeTemplateListStorage();
+            renderTimeTemplateSelect();
+            if(selectDom) selectDom.value = String(idx);
+            return alert('✅ 课时模版「' + name + '」已更新');
+        }
+    }
+
     const templateName = prompt('请输入课时模版名称');
     if(!templateName || templateName.trim() === '') return;
-    timeTemplateList.push({
-        name: templateName.trim(),
-        timeList: JSON.parse(JSON.stringify(getTimeData()))
-    });
+    const trimmed = templateName.trim();
+    if(timeTemplateList.some(function(t){ return t.name === trimmed; })){
+        return alert('该模版名称已存在，请换一个名称，或先在下拉菜单选中该模版后点保存进行更新');
+    }
+    timeTemplateList.push({ name: trimmed, timeList: timeList });
     saveTimeTemplateListStorage();
     renderTimeTemplateSelect();
-    alert('✅ 课时模版保存成功，新建课表时可直接选用');
+    if(selectDom){
+        const newIdx = timeTemplateList.findIndex(function(t){ return t.name === trimmed; });
+        if(newIdx >= 0) selectDom.value = String(newIdx);
+    }
+    alert('✅ 课时模版保存成功，新建课表或加载模版时可直接选用');
 }
 function applyTimeTemplate(){
     const selectDom = document.getElementById('timeTemplateSelect');
