@@ -9,6 +9,24 @@ const DEFAULT_TIME = [
     {name:"第5节 18:00-20:00",isSplit:false},
     {name:"第6节 20:00-22:00",isSplit:false}
 ];
+// 内置课时模版（随安装包分发，首次使用自动载入；用户保存的模版仍写在 localStorage）
+const DEFAULT_TIME_TEMPLATES = [
+    {
+        name: '6节课模版（上午、下午、晚上各2节，每节2小时）',
+        timeList: [
+            {name:"第1节 08:20-10:20",isSplit:false},
+            {name:"第2节 10:30-12:30",isSplit:false},
+            {name:"第3节 13:20-15:20",isSplit:false},
+            {name:"第4节 15:30-17:30",isSplit:false},
+            {name:"第5节 18:00-20:00",isSplit:false},
+            {name:"第6节 20:00-22:00",isSplit:false}
+        ]
+    },
+    {
+        name: '全日制课表模版',
+        timeList: JSON.parse(JSON.stringify(DEFAULT_TIME))
+    }
+];
 const DEFAULT_GROUP = ["文科1班","理科1班","一对一学员组1","一对一学员组2","小班课1组"];
 const DEFAULT_TEACHERS = ["语文老师","数学老师","英语老师","历史老师","化学老师","专职辅导A","专职辅导B","王帅","刘汉宇"];
 const DEFAULT_ROOMS = ["普通教室1","普通教室2","一对一隔间1","一对一隔间2","小班教室","实验室"];
@@ -145,7 +163,6 @@ function initLocalStorage(){
     if(tableList.length > 0){
         currentTableId = tableList[0].id;
     }
-    timeTemplateList = JSON.parse(localStorage.getItem('timeTemplateList') || '[]');
     saveSnapshot();
     touchStorageRefresh();
     refreshStorageQuotaEstimate();
@@ -154,6 +171,106 @@ function initLocalStorage(){
 function saveTimeTemplateListStorage(){
     localStorage.setItem('timeTemplateList', JSON.stringify(timeTemplateList));
     touchStorageRefresh();
+    persistTimeTemplatesToAppFile();
+}
+
+function normalizeTimeTemplateList(raw){
+    if(!Array.isArray(raw)) return [];
+    return raw.map(function(item){
+        if(!item || typeof item !== 'object') return null;
+        const name = String(item.name || '').trim();
+        const timeList = Array.isArray(item.timeList) ? item.timeList.map(function(t){
+            if(typeof t === 'string') return { name: t, isSplit: false };
+            return {
+                name: String(t?.name || '').trim(),
+                isSplit: !!t?.isSplit
+            };
+        }).filter(function(t){ return t.name; }) : [];
+        if(!name || !timeList.length) return null;
+        return { name: name, timeList: timeList };
+    }).filter(Boolean);
+}
+
+function mergeTimeTemplateLists(savedList, builtinList){
+    const merged = JSON.parse(JSON.stringify(savedList || []));
+    (builtinList || []).forEach(function(builtin){
+        if(!merged.some(function(item){ return item.name === builtin.name; })){
+            merged.push(JSON.parse(JSON.stringify(builtin)));
+        }
+    });
+    return merged;
+}
+
+async function fetchBuiltinTimeTemplates(){
+    try{
+        const res = await fetch('timeTemplates.json', { cache: 'no-cache' });
+        if(res.ok){
+            const data = normalizeTimeTemplateList(await res.json());
+            if(data.length) return data;
+        }
+    }catch(e){}
+    return JSON.parse(JSON.stringify(DEFAULT_TIME_TEMPLATES));
+}
+
+async function getTimeTemplateAppFilePath(){
+    if(typeof getAppLocalDataDir !== 'function') return null;
+    const dir = await getAppLocalDataDir();
+    if(!dir) return null;
+    const sep = dir.includes('\\') ? '\\' : '/';
+    return dir + sep + 'time_templates.json';
+}
+
+async function readTimeTemplatesFromAppFile(){
+    const path = await getTimeTemplateAppFilePath();
+    if(!path) return null;
+    try{
+        const tauri = window.__TAURI__;
+        let text;
+        if(tauri?.fs?.readTextFile) text = await tauri.fs.readTextFile(path);
+        else if(typeof tauriInvoke === 'function') text = await tauriInvoke('plugin:fs|read_text_file', { path: path });
+        if(typeof text !== 'string') return null;
+        const data = normalizeTimeTemplateList(JSON.parse(text));
+        return data.length ? data : null;
+    }catch(e){
+        return null;
+    }
+}
+
+async function persistTimeTemplatesToAppFile(){
+    const path = await getTimeTemplateAppFilePath();
+    if(!path) return false;
+    const content = JSON.stringify(timeTemplateList, null, 2);
+    try{
+        const tauri = window.__TAURI__;
+        if(tauri?.fs?.writeTextFile) await tauri.fs.writeTextFile(path, content);
+        else if(typeof tauriInvoke === 'function') await tauriInvoke('plugin:fs|write_text_file', { path: path, contents: content });
+        else return false;
+        return true;
+    }catch(e){
+        return false;
+    }
+}
+
+async function initTimeTemplates(){
+    const builtinList = await fetchBuiltinTimeTemplates();
+    let savedList = normalizeTimeTemplateList(
+        JSON.parse(localStorage.getItem('timeTemplateList') || '[]')
+    );
+
+    const fileList = await readTimeTemplatesFromAppFile();
+    if(fileList && fileList.length){
+        savedList = mergeTimeTemplateLists(fileList, []);
+    }
+
+    if(!savedList.length){
+        timeTemplateList = JSON.parse(JSON.stringify(builtinList));
+    }else{
+        timeTemplateList = mergeTimeTemplateLists(savedList, builtinList);
+    }
+
+    localStorage.setItem('timeTemplateList', JSON.stringify(timeTemplateList));
+    touchStorageRefresh();
+    await persistTimeTemplatesToAppFile();
 }
 
 function saveTableList(){
@@ -739,7 +856,7 @@ function saveTimeAsTemplate(){
         const newIdx = timeTemplateList.findIndex(function(t){ return t.name === trimmed; });
         if(newIdx >= 0) selectDom.value = String(newIdx);
     }
-    alert('✅ 课时模版保存成功，新建课表或加载模版时可直接选用');
+    alert('✅ 课时模版保存成功，已写入软件本地，下次打开仍可使用');
 }
 function applyTimeTemplate(){
     const selectDom = document.getElementById('timeTemplateSelect');
