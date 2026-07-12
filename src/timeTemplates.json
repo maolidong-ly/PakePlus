@@ -1,0 +1,26 @@
+[
+  {
+    "name": "6节课模版（上午、下午、晚上各2节，每节2小时）",
+    "timeList": [
+      {"name": "第1节 08:20-10:20", "isSplit": false},
+      {"name": "第2节 10:30-12:30", "isSplit": false},
+      {"name": "第3节 13:20-15:20", "isSplit": false},
+      {"name": "第4节 15:30-17:30", "isSplit": false},
+      {"name": "第5节 18:00-20:00", "isSplit": false},
+      {"name": "第6节 20:00-22:00", "isSplit": false}
+    ]
+  },
+  {
+    "name": "全日制课表模版",
+    "timeList": [
+      {"name": "第1节 08:20-10:20", "isSplit": false},
+      {"name": "第2节 10:30-12:30", "isSplit": false},
+      {"name": "午饭", "isSplit": true},
+      {"name": "第3节 13:20-15:20", "isSplit": false},
+      {"name": "第4节 15:30-17:30", "isSplit": false},
+      {"name": "晚饭", "isSplit": true},
+      {"name": "第5节 18:00-20:00", "isSplit": false},
+      {"name": "第6节 20:00-22:00", "isSplit": false}
+    ]
+  }
+]
