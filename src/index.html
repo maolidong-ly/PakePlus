@@ -2413,7 +2413,7 @@ body.light-mode .occ-free-chip{
         <button class="btn-green" onclick="saveTimeAsTemplate()">保存模版</button>
         <button class="btn-ghost" onclick="renameTimeTemplate()">重命名</button>
         <button class="btn-ghost" onclick="delTimeTemplate()">删除</button>
-        <span class="backup-hint">编辑完课时后点「保存模版」；下次从下拉菜单选用即可</span>
+        <span class="backup-hint">编辑完课时后点「保存模版」，模版会保存在软件中，无需导出文件</span>
     </div>
     <table>
         <thead>
@@ -2979,6 +2979,7 @@ window.onload = async function(){
     const licensed = await initLicenseCheck();
     if(licensed && typeof initAuthCheck === 'function') initAuthCheck();
     initLocalStorage();
+    if(typeof initTimeTemplates === 'function') await initTimeTemplates();
     if(typeof applyAppBranding === 'function') applyAppBranding();
     renderTableTags();
     renderNewTableClassSelect();
