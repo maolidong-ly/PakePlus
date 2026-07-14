@@ -165,8 +165,8 @@ function initOccupancyQueryPanel(){
     const roomSel = document.getElementById('occRoomSelect');
     if(!teacherSel || !roomSel) return;
 
-    occTeacherAll = JSON.parse(localStorage.getItem('teacherList') || '[]');
-    occRoomAll = JSON.parse(localStorage.getItem('roomList') || '[]');
+    occTeacherAll = JSON.parse(appGetItem('teacherList') || '[]');
+    occRoomAll = JSON.parse(appGetItem('roomList') || '[]');
     filterOccTeacherOptions(true);
     filterOccRoomOptions(true);
     setOccQueryType(occQueryType);
