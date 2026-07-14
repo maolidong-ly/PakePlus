@@ -140,13 +140,13 @@ window.globalConflictList = [];
 // 本地存储初始化
 function initLocalStorage(){
     // 全局基础数据不再包含公共课时
-    if(!localStorage.classList) localStorage.classList = JSON.stringify(DEFAULT_GROUP);
-    if(!localStorage.teacherList) localStorage.teacherList = JSON.stringify(DEFAULT_TEACHERS);
-    if(!localStorage.roomList) localStorage.roomList = JSON.stringify(DEFAULT_ROOMS);
-    if(!localStorage.courseList) localStorage.courseList = JSON.stringify(DEFAULT_COURSES);
-    if(!localStorage.multiTableData) localStorage.multiTableData = JSON.stringify([]);
+    if(!appGetItem('classList')) appSetItem('classList', JSON.stringify(DEFAULT_GROUP));
+    if(!appGetItem('teacherList')) appSetItem('teacherList', JSON.stringify(DEFAULT_TEACHERS));
+    if(!appGetItem('roomList')) appSetItem('roomList', JSON.stringify(DEFAULT_ROOMS));
+    if(!appGetItem('courseList')) appSetItem('courseList', JSON.stringify(DEFAULT_COURSES));
+    if(!appGetItem('multiTableData')) appSetItem('multiTableData', JSON.stringify([]));
     
-    tableList = JSON.parse(localStorage.multiTableData);
+    tableList = JSON.parse(appGetItem('multiTableData') || '[]');
     // 兼容旧版：给没有独立课时的旧课表，绑定默认课时
     tableList = tableList.map(table=>{
         return {
@@ -169,7 +169,7 @@ function initLocalStorage(){
 }
 
 function saveTimeTemplateListStorage(){
-    localStorage.setItem('timeTemplateList', JSON.stringify(timeTemplateList));
+    appSetItem('timeTemplateList', JSON.stringify(timeTemplateList));
     touchStorageRefresh();
     persistTimeTemplatesToAppFile();
 }
@@ -254,7 +254,7 @@ async function persistTimeTemplatesToAppFile(){
 async function initTimeTemplates(){
     const builtinList = await fetchBuiltinTimeTemplates();
     let savedList = normalizeTimeTemplateList(
-        JSON.parse(localStorage.getItem('timeTemplateList') || '[]')
+        JSON.parse(appGetItem('timeTemplateList') || '[]')
     );
 
     const fileList = await readTimeTemplatesFromAppFile();
@@ -268,14 +268,14 @@ async function initTimeTemplates(){
         timeTemplateList = mergeTimeTemplateLists(savedList, builtinList);
     }
 
-    localStorage.setItem('timeTemplateList', JSON.stringify(timeTemplateList));
+    appSetItem('timeTemplateList', JSON.stringify(timeTemplateList));
     touchStorageRefresh();
     await persistTimeTemplatesToAppFile();
 }
 
 function saveTableList(){
     try{
-        localStorage.multiTableData = JSON.stringify(tableList);
+        appSetItem('multiTableData', JSON.stringify(tableList));
         if(typeof renderStorageStatus === 'function') renderStorageStatus();
     }catch(err){
         notifyStorageQuotaExceeded(err);
@@ -291,6 +291,17 @@ const STORAGE_DANGER_PERCENT = 85;
 const BACKUP_REMIND_DAYS = 7;
 
 function getLocalStorageByteSize(){
+    if(typeof getBulkDataByteSize === 'function' && typeof isLargeCapacityBackend === 'function' && isLargeCapacityBackend()){
+        let total = getBulkDataByteSize();
+        // 加上非大数据键（授权、登录、主题等）
+        for(let i = 0; i < localStorage.length; i++){
+            const key = localStorage.key(i);
+            if(typeof isBulkStorageKey === 'function' && isBulkStorageKey(key)) continue;
+            const val = localStorage.getItem(key) || '';
+            total += (key.length + val.length) * 2;
+        }
+        return total;
+    }
     let total = 0;
     for(let i = 0; i < localStorage.length; i++){
         const key = localStorage.key(i);
@@ -301,7 +312,7 @@ function getLocalStorageByteSize(){
 }
 
 function getMultiTableByteSize(){
-    const str = localStorage.getItem('multiTableData') || '[]';
+    const str = appGetItem('multiTableData') || '[]';
     return str.length * 2;
 }
 
@@ -334,7 +345,7 @@ function getDaysSinceBackup(){
 
 function computeStorageStats(){
     const usedBytes = getLocalStorageByteSize();
-    const quotaBytes = STORAGE_DEFAULT_QUOTA;
+    const quotaBytes = (typeof getAppDataQuotaBytes === 'function') ? getAppDataQuotaBytes() : STORAGE_DEFAULT_QUOTA;
     const tablesBytes = getMultiTableByteSize();
     const tableCount = Array.isArray(tableList) ? tableList.length : 0;
     const avgTableBytes = tableCount > 0
@@ -358,6 +369,12 @@ function computeStorageStats(){
 }
 
 function getStorageSpaceHint(stats){
+    const large = typeof isLargeCapacityBackend === 'function' && isLargeCapacityBackend();
+    if(large){
+        if(stats.usedBytes < 10 * 1024 * 1024) return { text: '空间充足', level: 'ok' };
+        if(stats.usedBytes < 100 * 1024 * 1024) return { text: '用量正常', level: 'ok' };
+        return { text: '数据量较大，建议定期导出备份', level: 'warn' };
+    }
     if(stats.usedPercent >= STORAGE_DANGER_PERCENT){
         return {
             text: `空间紧张，约还可增 ${formatRemainingTableCount(stats.typicalRemainingTables)} 张`,
@@ -395,6 +412,9 @@ function renderStorageStatus(){
     text.className = 'tm-storage-text' + (level === 'ok' ? '' : ` ${level}`);
 
     let msg = `本地存储 ${formatStorageSize(stats.usedBytes)} / ${formatStorageSize(stats.quotaBytes)}（${stats.usedPercent.toFixed(0)}%）`;
+    if(typeof getAppStorageBackendLabel === 'function'){
+        msg += ` · ${getAppStorageBackendLabel()}`;
+    }
     msg += ` · 课表 ${stats.tableCount} 张 · ${spaceHint.text}`;
 
     const daysSinceBackup = getDaysSinceBackup();
@@ -422,8 +442,9 @@ function renderStorageStatus(){
 }
 
 function notifyStorageQuotaExceeded(err){
-    console.error('localStorage 写入失败：', err);
-    alert('❌ 本地存储空间不足，无法保存。请先导出全部备份，并删除不需要的课表或基础数据后重试。');
+    console.error('本地存储写入失败：', err);
+    const backendHint = (typeof getAppStorageBackendLabel === 'function') ? getAppStorageBackendLabel() : 'localStorage';
+    alert('❌ 数据保存失败（当前方案：' + backendHint + '）。请先导出全部备份，并删除不需要的课表或基础数据后重试。');
     renderStorageStatus();
 }
 
@@ -533,17 +554,17 @@ function saveCurrentTableData(data){
 }
 
 // 基础数据读写（全局公共基础数据）
-function getClassData(){return JSON.parse(localStorage.classList);}
-function saveClassData(arr){localStorage.classList = JSON.stringify(arr); touchStorageRefresh();}
+function getClassData(){return JSON.parse(appGetItem('classList') || '[]');}
+function saveClassData(arr){appSetItem('classList', JSON.stringify(arr)); touchStorageRefresh();}
 
-function getTeacherData(){return JSON.parse(localStorage.teacherList);}
-function saveTeacherData(arr){localStorage.teacherList = JSON.stringify(arr); touchStorageRefresh();}
+function getTeacherData(){return JSON.parse(appGetItem('teacherList') || '[]');}
+function saveTeacherData(arr){appSetItem('teacherList', JSON.stringify(arr)); touchStorageRefresh();}
 
-function getRoomData(){return JSON.parse(localStorage.roomList);}
-function saveRoomData(arr){localStorage.roomList = JSON.stringify(arr); touchStorageRefresh();}
+function getRoomData(){return JSON.parse(appGetItem('roomList') || '[]');}
+function saveRoomData(arr){appSetItem('roomList', JSON.stringify(arr)); touchStorageRefresh();}
 
-function getCourseData(){return JSON.parse(localStorage.courseList);}
-function saveCourseData(arr){localStorage.courseList = JSON.stringify(arr); touchStorageRefresh();}
+function getCourseData(){return JSON.parse(appGetItem('courseList') || '[]');}
+function saveCourseData(arr){appSetItem('courseList', JSON.stringify(arr)); touchStorageRefresh();}
 
 // 课程信息解析 四维度匹配：课程|教师|教室|班级
 function getCourseInfo(valKey){
@@ -662,7 +683,7 @@ async function tauriWriteContent(path, text){
 async function browserPickSaveBlob(blob, defaultFilename, extensions){
     if(typeof window.showSaveFilePicker !== 'function') return undefined;
     const ext = (extensions && extensions[0] || defaultFilename.split('.').pop() || 'bin').replace(/^\./, '');
-    const mimeMap = { json: 'application/json', xls: 'application/vnd.ms-excel', html: 'text/html' };
+    const mimeMap = { json: 'application/json', xls: 'application/vnd.ms-excel', html: 'text/html', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
     const mime = mimeMap[ext] || blob.type || 'application/octet-stream';
     try{
         const handle = await window.showSaveFilePicker({
@@ -824,6 +845,99 @@ async function saveFileWithPicker(content, defaultFilename, options){
     return true;
 }
 
+async function tauriWriteBlob(path, blob){
+    const normalizedPath = normalizeSavePath(path);
+    if(!normalizedPath || !blob) return false;
+    const tauri = window.__TAURI__;
+    const buffer = await blob.arrayBuffer();
+    const bytes = Array.from(new Uint8Array(buffer));
+    try{
+        if(tauri?.fs?.writeFile){
+            await tauri.fs.writeFile(normalizedPath, bytes);
+            return true;
+        }
+        if(tauri.core?.invoke){
+            await tauri.core.invoke('plugin:fs|write_file', { path: normalizedPath, contents: bytes });
+            return true;
+        }
+    }catch(err){
+        console.warn('Tauri write blob failed:', err);
+    }
+    return false;
+}
+
+/** 保存二进制文件（如 PNG 图片） */
+async function saveBlobWithPicker(blob, defaultFilename, extensions){
+    extensions = extensions || [defaultFilename.split('.').pop()].filter(Boolean);
+    const safeFilename = sanitizeDefaultFilename(defaultFilename);
+
+    if(isWindowsDesktop()){
+        if(typeof window.showSaveFilePicker === 'function'){
+            const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
+            if(fsaResult === true) return true;
+            if(fsaResult === false) return false;
+        }
+        browserDownloadFallback(blob, safeFilename);
+        return true;
+    }
+
+    if(isDesktopApp()){
+        const path = await tauriPickSavePath(safeFilename, extensions);
+        if(path === null) return false;
+        if(path){
+            const ok = await tauriWriteBlob(path, blob);
+            if(ok) return true;
+            browserDownloadFallback(blob, ensureFileExtension(extractBasename(path) || safeFilename, extensions).split(/[/\\]/).pop());
+            return true;
+        }
+    }
+
+    const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
+    if(fsaResult === true) return true;
+    if(fsaResult === false) return false;
+    browserDownloadFallback(blob, safeFilename);
+    return true;
+}
+
+/** 将 HTML 表格渲染为 PNG 图片并导出 */
+async function exportHtmlDocumentAsPng(htmlDoc, defaultFilename){
+    if(typeof html2canvas === 'undefined'){
+        return alert('图片导出模块未加载，请检查网络连接后重试');
+    }
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;left:-12000px;top:0;width:960px;height:2400px;border:none;opacity:0;pointer-events:none;';
+    document.body.appendChild(frame);
+
+    try{
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        doc.open();
+        doc.write(htmlDoc);
+        doc.close();
+        await new Promise(function(resolve){ setTimeout(resolve, 280); });
+        const target = doc.body.querySelector('table') || doc.body;
+        const canvas = await html2canvas(target, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            useCORS: true,
+            logging: false
+        });
+        const blob = await new Promise(function(resolve){
+            canvas.toBlob(resolve, 'image/png', 0.95);
+        });
+        if(!blob) return alert('图片生成失败，请重试');
+        const saved = await saveBlobWithPicker(blob, defaultFilename, ['png']);
+        if(saved && typeof markBackupExported === 'function') markBackupExported();
+        return saved;
+    }catch(err){
+        console.error('exportHtmlDocumentAsPng failed:', err);
+        alert('图片导出失败：' + (err.message || '未知错误'));
+        return false;
+    }finally{
+        document.body.removeChild(frame);
+    }
+}
+
 // ========== 课时模版管理（全局保存，新建课表时可选用） ==========
 function saveTimeAsTemplate(){
     if(!currentTableId) return alert("请先选中一张课表");
@@ -891,8 +1005,8 @@ function delTimeTemplate(){
     saveTimeTemplateListStorage();
     renderTimeTemplateSelect();
 }
-function getNewTableTimeList(){
-    const selectDom = document.getElementById('newTableTimeTemplate');
+function getNewTableTimeList(selectId){
+    const selectDom = document.getElementById(selectId || 'newClassTimeTemplate');
     const val = selectDom ? selectDom.value : 'default';
     if(val === 'default' || val === ''){
         return JSON.parse(JSON.stringify(DEFAULT_TIME));
@@ -903,7 +1017,7 @@ function getNewTableTimeList(){
 
 // 班级模块备份
 async function exportClassBackup(){
-    const data = localStorage.classList;
+    const data = appGetItem('classList') || '[]';
     const saved = await saveFileWithPicker(data, `班级学员组备份_${new Date().getTime()}.json`, {
         extensions: ['json'], mimeType: 'application/json'
     });
@@ -916,11 +1030,14 @@ function importClassBackup(){
     reader.onload = e=>{
         try{
             JSON.parse(e.target.result);
-            localStorage.classList = e.target.result;
+            appSetItem('classList', e.target.result);
             renderClass();
             renderCourseSelects();
-            renderNewTableClassSelect();
-            alert("✅ 班级数据导入成功");
+            if(typeof syncClassesAndTables === 'function') syncClassesAndTables();
+            renderTableTags();
+            renderTime();
+            renderSchedule();
+            alert("✅ 班级数据导入成功，已同步生成对应课表");
         }catch(err){
             alert("❌ 文件格式错误");
         }
@@ -930,7 +1047,7 @@ function importClassBackup(){
 
 // 教师模块备份
 async function exportTeacherBackup(){
-    const data = localStorage.teacherList;
+    const data = appGetItem('teacherList') || '[]';
     const saved = await saveFileWithPicker(data, `教师数据备份_${new Date().getTime()}.json`, {
         extensions: ['json'], mimeType: 'application/json'
     });
@@ -943,7 +1060,7 @@ function importTeacherBackup(){
     reader.onload = e=>{
         try{
             JSON.parse(e.target.result);
-            localStorage.teacherList = e.target.result;
+            appSetItem('teacherList', e.target.result);
             renderTeacher();
             renderCourseSelects();
             alert("✅ 教师数据导入成功");
@@ -956,7 +1073,7 @@ function importTeacherBackup(){
 
 // 教室模块备份
 async function exportRoomBackup(){
-    const data = localStorage.roomList;
+    const data = appGetItem('roomList') || '[]';
     const saved = await saveFileWithPicker(data, `教室场地备份_${new Date().getTime()}.json`, {
         extensions: ['json'], mimeType: 'application/json'
     });
@@ -969,7 +1086,7 @@ function importRoomBackup(){
     reader.onload = e=>{
         try{
             JSON.parse(e.target.result);
-            localStorage.roomList = e.target.result;
+            appSetItem('roomList', e.target.result);
             renderRoom();
             renderCourseSelects();
             alert("✅ 教室数据导入成功");
@@ -982,7 +1099,7 @@ function importRoomBackup(){
 
 // 课程模块备份
 async function exportCourseBackup(){
-    const data = localStorage.courseList;
+    const data = appGetItem('courseList') || '[]';
     const saved = await saveFileWithPicker(data, `课程数据备份_${new Date().getTime()}.json`, {
         extensions: ['json'], mimeType: 'application/json'
     });
@@ -995,7 +1112,7 @@ function importCourseBackup(){
     reader.onload = e=>{
         try{
             JSON.parse(e.target.result);
-            localStorage.courseList = e.target.result;
+            appSetItem('courseList', e.target.result);
             renderCourse();
             renderCourseSelects();
             alert("✅ 课程数据导入成功");
@@ -1180,13 +1297,13 @@ function markBackupExported(){
 function shouldRemindBackupOnClose(){
     if(sessionStorage.getItem('scheduleBackupExported') === '1') return false;
     try{
-        const tables = JSON.parse(localStorage.getItem('multiTableData') || '[]');
+        const tables = JSON.parse(appGetItem('multiTableData') || '[]');
         if(Array.isArray(tables) && tables.length > 0) return true;
     }catch(e){}
     const keys = ['classList', 'teacherList', 'roomList', 'courseList', 'timeTemplateList'];
     return keys.some(k => {
         try{
-            const arr = JSON.parse(localStorage.getItem(k) || '[]');
+            const arr = JSON.parse(appGetItem(k) || '[]');
             return Array.isArray(arr) && arr.length > 0;
         }catch(e){
             return false;
@@ -1226,8 +1343,11 @@ function exitGoToBackup(){
     }, 80);
 }
 
-function confirmAppExit(){
+async function confirmAppExit(){
     closeExitConfirm();
+    if(typeof flushAppDataNow === 'function'){
+        try{ await flushAppDataNow(); }catch(e){}
+    }
     window.userConfirmedExit = true;
     window.close();
     setTimeout(function(){
