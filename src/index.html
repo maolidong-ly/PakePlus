@@ -449,19 +449,22 @@ h1{color:inherit;}
 .nav-card{
     padding: 6px;
     margin-bottom: 20px;
-    display: inline-flex;
-    flex-wrap: wrap;
+    display: flex;
+    flex-wrap: nowrap;
     gap: 4px;
     width: 100%;
+    box-sizing: border-box;
 }
 .tab-top{
     display:flex;
     gap:4px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     width: 100%;
 }
 .tab-top button{
-    padding: 11px 20px;
+    flex: 1;
+    min-width: 0;
+    padding: 11px 8px;
     border: 1px solid transparent;
     background: transparent;
     border-radius: var(--radius-sm);
@@ -472,6 +475,7 @@ h1{color:inherit;}
     transition: var(--transition);
     font-family: var(--font-ui);
     letter-spacing: 0.2px;
+    text-align: center;
 }
 .tab-top button:hover{
     color: var(--text-color);
@@ -797,6 +801,18 @@ body.light-mode .schedule-dock{
     border-color: var(--primary-light);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
 }
+.tm-search-wrap{
+    flex: 0 0 auto;
+    min-width: 0;
+    width: 140px;
+    max-width: 140px;
+}
+.tm-search-wrap::before{
+    display: none;
+}
+.tm-search-wrap .search-input{
+    padding: 8px 12px;
+}
 .tm-divider{
     height: 1px;
     background: var(--border);
@@ -842,8 +858,8 @@ body.light-mode .schedule-dock{
     color: #fff;
 }
 .tm-table-select{
-    min-width: 200px;
-    max-width: 360px;
+    min-width: 160px;
+    max-width: 280px;
     font-weight: 600;
 }
 .tm-storage{
@@ -1053,8 +1069,10 @@ body.light-mode .btn-ghost{
 }
 /* 导航短标签 */
 .tab-top button{
-    padding: 10px 16px;
+    flex: 1;
+    padding: 10px 6px;
     font-size: 13px;
+    text-align: center;
 }
 /* 折叠面板默认更低调 */
 .backup-collapse{
@@ -2257,6 +2275,7 @@ body.light-mode .occ-free-chip{
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
 <div class="app-bg"></div>
@@ -2350,31 +2369,14 @@ body.light-mode .occ-free-chip{
 <div class="table-manager panel-card">
     <div class="tm-row">
         <span class="tm-label">当前</span>
-        <div class="search-wrap">
+        <div class="search-wrap tm-search-wrap">
             <input type="text" id="tableSelectSearch" class="search-input" placeholder="检索课表…" oninput="renderTableTags()">
         </div>
         <select id="tableSelect" class="status-select tm-table-select" onchange="switchTable(this.value)"></select>
         <span id="tableSelectSearchHint" class="search-hint"></span>
+        <button class="btn-red" type="button" onclick="delCurrentTable()">删除当前课表</button>
     </div>
-    <div class="tm-divider"></div>
-    <div class="tm-row">
-        <span class="tm-label">新建</span>
-        <input type="text" id="newTableName" placeholder="课表名称">
-        <select id="newTableBindClass">
-            <option value="">绑定班级</option>
-        </select>
-        <select id="newTableTimeTemplate" title="课时模版">
-            <option value="default">默认课时</option>
-        </select>
-        <button class="btn-blue" onclick="addNewTable()">新建课表</button>
-        <details class="tm-more">
-            <summary>课表管理</summary>
-            <div class="tm-more-body">
-                <button class="btn-orange" onclick="editCurrentTableBind()">修改绑定班级</button>
-                <button class="btn-red" onclick="delCurrentTable()">删除当前课表</button>
-            </div>
-        </details>
-    </div>
+    <p class="backup-hint tm-hint">课表名称与班级名称一致；请在「班级」页新增或修改班级，系统自动创建/同步课表。</p>
     <div class="tm-storage" id="storageStatusBar" onclick="openStorageBackupHint()" style="cursor:pointer" title="点击查看备份">
         <div class="tm-storage-track" title="本地存储占用">
             <div class="tm-storage-fill" id="storageStatusFill"></div>
@@ -2430,8 +2432,12 @@ body.light-mode .occ-free-chip{
 <div id="tab-class" class="tab-content">
     <div class="form-row">
         <label>班级名称：</label>
-        <input type="text" id="className" placeholder="输入班级名称">
+        <input type="text" id="className" placeholder="输入班级名称（即课表名称）">
+        <select id="newClassTimeTemplate" title="课时模版">
+            <option value="default">默认课时</option>
+        </select>
         <button class="btn-blue" onclick="addClass()">新增班级</button>
+        <span class="backup-hint">新增班级后自动创建同名课表，无需再单独新建课表</span>
     </div>
     <details class="backup-collapse">
         <summary>备份 / 导入</summary>
@@ -2578,31 +2584,28 @@ body.light-mode .occ-free-chip{
                 <button type="button" class="sab-btn sab-btn-icon" onclick="redoStep()" title="下一步">↪</button>
                 <span class="sab-sep"></span>
                 <button type="button" class="sab-btn sab-btn-primary" onclick="checkAllConflict()">冲突检测</button>
+                <button type="button" class="sab-btn sab-btn-primary" onclick="showConflictDetail()">查看冲突详情</button>
                 <button type="button" class="sab-btn sab-btn-primary" onclick="exportScheduleToExcel()">导出 Excel</button>
+                <button type="button" class="sab-btn sab-btn-primary" onclick="exportScheduleToImage()">导出图片</button>
                 <button type="button" class="sab-btn" onclick="printTable()">打印</button>
+                <button type="button" class="sab-btn" onclick="clearCell()">清空单元格</button>
+                <button type="button" class="sab-btn" onclick="clearAllCurrentTable()">一键清空</button>
+                <button type="button" class="sab-btn" onclick="saveSnapshot()">保存快照</button>
             </div>
             <details class="sab-more">
-                <summary>更多操作</summary>
+                <summary>导出教师/教室课表</summary>
                 <div class="sab-more-body">
-                <div class="sab-more-group">
-                    <div class="sab-more-group-title">编辑</div>
-                    <button type="button" class="sab-btn" onclick="clearCell()">清空单元格</button>
-                    <button type="button" class="sab-btn" onclick="clearAllCurrentTable()">一键清空</button>
-                    <button type="button" class="sab-btn" onclick="saveSnapshot()">保存快照</button>
-                </div>
-                <div class="sab-more-group">
-                    <div class="sab-more-group-title">冲突</div>
-                    <button type="button" class="sab-btn" onclick="showConflictDetail()">查看冲突详情</button>
-                </div>
                 <div class="sab-more-group">
                     <div class="sab-more-group-title">按教师 / 教室导出</div>
                     <div class="tools-export-item">
                         <select id="exportTeacherSelect"><option value="">选择教师</option></select>
-                        <button type="button" class="sab-btn" onclick="exportSelectedTeacherSchedule()">导出</button>
+                        <button type="button" class="sab-btn" onclick="exportSelectedTeacherSchedule()">Excel</button>
+                        <button type="button" class="sab-btn" onclick="exportSelectedTeacherScheduleImage()">图片</button>
                     </div>
                     <div class="tools-export-item">
                         <select id="exportRoomSelect"><option value="">选择教室</option></select>
-                        <button type="button" class="sab-btn" onclick="exportSelectedRoomSchedule()">导出</button>
+                        <button type="button" class="sab-btn" onclick="exportSelectedRoomSchedule()">Excel</button>
+                        <button type="button" class="sab-btn" onclick="exportSelectedRoomScheduleImage()">图片</button>
                     </div>
                 </div>
             </details>
@@ -2890,6 +2893,7 @@ body.light-mode .occ-free-chip{
 
 <script src="common.js"></script>
 <script src="license.js"></script>
+<script src="localStore.js"></script>
 <script src="auth.js"></script>
 <script src="baseManage.js"></script>
 <script src="scheduleRender.js"></script>
@@ -2978,11 +2982,12 @@ function closeAutoModal(){
 window.onload = async function(){
     const licensed = await initLicenseCheck();
     if(licensed && typeof initAuthCheck === 'function') initAuthCheck();
+    if(typeof initAppDataStorage === 'function') await initAppDataStorage();
     initLocalStorage();
+    if(typeof syncClassesAndTables === 'function') syncClassesAndTables();
     if(typeof initTimeTemplates === 'function') await initTimeTemplates();
     if(typeof applyAppBranding === 'function') applyAppBranding();
     renderTableTags();
-    renderNewTableClassSelect();
     renderTimeTemplateSelect();
     renderTime();
     renderClass();
@@ -3001,6 +3006,7 @@ window.onload = async function(){
         renderExportRoomSelect();
         initAutoConstraintTimeSelects();
         if(currentActiveTab === 'schedule') renderAutoSchedulePanel();
+        if(typeof renderStorageStatus === 'function') renderStorageStatus();
     }, 150);
     const startupAudio = document.getElementById('startupAudio');
     if(startupAudio){
