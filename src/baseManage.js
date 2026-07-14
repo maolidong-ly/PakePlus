@@ -160,13 +160,127 @@ function renderTime(){
     document.getElementById("timeList").innerHTML=html;
 }
 
-// ========== 班级管理 ==========
-function addClass(){
-    let name=document.getElementById("className").value.trim();if(!name)return alert("请填写名称");
-    let arr=getClassData();arr.push(name);saveClassData(arr);
-    document.getElementById("className").value="";renderClass();renderCourseSelects();renderNewTableClassSelect();
+// ========== 班级管理（班级名称 = 课表名称，新增班级自动创建课表） ==========
+function findTableByClassName(className){
+    const name = (className || '').trim();
+    if(!name) return null;
+    return tableList.find(function(t){
+        return t.bindClass === name || t.name === name;
+    }) || null;
 }
-function delClass(idx){let arr=getClassData();arr.splice(idx,1);saveClassData(arr);renderClass();renderCourseSelects();renderNewTableClassSelect();}
+
+function createTableForClass(className, timeList){
+    const name = (className || '').trim();
+    return {
+        id: 'table_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        name: name,
+        bindClass: name,
+        data: {},
+        timeList: timeList || JSON.parse(JSON.stringify(DEFAULT_TIME)),
+        autoScheduleConfig: { constraints: [], settings: { onlyEmpty: true, checkGlobal: true, spreadWeek: true } }
+    };
+}
+
+function syncClassesAndTables(){
+    const classList = getClassData();
+    let changed = false;
+
+    tableList.forEach(function(table){
+        const key = (table.bindClass || table.name || '').trim();
+        if(!key) return;
+        if(table.bindClass !== key || table.name !== key){
+            table.bindClass = key;
+            table.name = key;
+            changed = true;
+        }
+    });
+
+    classList.forEach(function(cls){
+        const name = (cls || '').trim();
+        if(!name) return;
+        const table = findTableByClassName(name);
+        if(!table){
+            tableList.push(createTableForClass(name));
+            changed = true;
+        }else if(table.name !== name || table.bindClass !== name){
+            table.name = name;
+            table.bindClass = name;
+            changed = true;
+        }
+    });
+
+    if(changed) saveTableList();
+    if(tableList.length && !currentTableId){
+        currentTableId = tableList[0].id;
+    }else if(currentTableId && !tableList.find(function(t){ return t.id === currentTableId; })){
+        currentTableId = tableList[0]?.id || '';
+    }
+}
+
+function addClass(){
+    const name = document.getElementById("className").value.trim();
+    if(!name) return alert("请填写班级名称");
+    const arr = getClassData();
+    if(arr.includes(name)) return alert("该班级名称已存在");
+
+    arr.push(name);
+    saveClassData(arr);
+
+    const timeList = getNewTableTimeList('newClassTimeTemplate');
+    const existTable = findTableByClassName(name);
+    if(existTable){
+        existTable.name = name;
+        existTable.bindClass = name;
+        currentTableId = existTable.id;
+    }else{
+        const newTable = createTableForClass(name, timeList);
+        tableList.push(newTable);
+        currentTableId = newTable.id;
+    }
+
+    saveTableList();
+    saveSnapshot();
+    document.getElementById("className").value = "";
+    renderClass();
+    renderTableTags();
+    renderTime();
+    renderSchedule();
+    renderCourseSelects();
+    checkAllConflict();
+    alert('✅ 班级「' + name + '」已创建，同名课表已自动生成');
+}
+
+function delClass(idx){
+    const arr = getClassData();
+    const className = arr[idx];
+    if(tableList.length <= 1 && findTableByClassName(className)){
+        return alert("至少保留一个班级/课表");
+    }
+    if(!confirm('确定删除班级「' + className + '」？对应课表及排课数据将一并删除。')) return;
+
+    arr.splice(idx, 1);
+    saveClassData(arr);
+
+    const table = findTableByClassName(className);
+    if(table){
+        const tIdx = tableList.findIndex(function(t){ return t.id === table.id; });
+        if(tIdx !== -1){
+            tableList.splice(tIdx, 1);
+            if(currentTableId === table.id){
+                currentTableId = tableList[0]?.id || '';
+            }
+            saveTableList();
+            saveSnapshot();
+            renderTableTags();
+            renderTime();
+            renderSchedule();
+            checkAllConflict();
+        }
+    }
+
+    renderClass();
+    renderCourseSelects();
+}
 function editClass(idx){
     const arr = getClassData();
     const oldName = arr[idx];
@@ -193,11 +307,35 @@ function saveEditClassName(idx){
         return;
     }
     const arr = getClassData();
+    const oldName = arr[idx];
+    if(arr.includes(newName) && newName !== oldName){
+        return alert("该班级名称已存在");
+    }
+
     arr[idx] = newName;
     saveClassData(arr);
+
+    const table = findTableByClassName(oldName);
+    if(table){
+        table.name = newName;
+        table.bindClass = newName;
+        saveTableList();
+        renderTableTags();
+    }
+
+    const courses = getCourseData();
+    let courseChanged = false;
+    courses.forEach(function(c){
+        if(c.cls === oldName){
+            c.cls = newName;
+            courseChanged = true;
+        }
+    });
+    if(courseChanged) saveCourseData(courses);
+
     renderClass();
     renderCourseSelects();
-    renderNewTableClassSelect();
+    renderCourse();
     closeAutoModal();
 }
 function renderClass(){
@@ -567,27 +705,16 @@ function renderTimeTemplateSelect(){
             timeSelect.appendChild(option);
         });
     }
-    const newTableSelect = document.getElementById('newTableTimeTemplate');
-    if(newTableSelect){
-        newTableSelect.innerHTML = '<option value="default">默认课时</option>';
+    const newClassSelect = document.getElementById('newClassTimeTemplate');
+    if(newClassSelect){
+        newClassSelect.innerHTML = '<option value="default">默认课时</option>';
         timeTemplateList.forEach((item, index)=>{
             const option = document.createElement('option');
             option.value = index;
             option.textContent = item.name;
-            newTableSelect.appendChild(option);
+            newClassSelect.appendChild(option);
         });
     }
-}
-
-// ========== 课表绑定班级下拉 ==========
-function renderNewTableClassSelect(){
-    let classList = getClassData();
-    let select = document.getElementById("newTableBindClass");
-    let html = '<option value="">绑定班级</option>';
-    classList.forEach(c=>{
-        html += `<option value="${c}">${c}</option>`;
-    });
-    select.innerHTML = html;
 }
 
 // ========== 课表标签渲染 ==========
@@ -607,10 +734,9 @@ function renderTableTags(){
     }
 
     tableList.forEach(t=>{
-        let bindClassText = t.bindClass ? t.bindClass : "未绑定";
-        let label = `${t.name}【${bindClassText}】`;
+        const label = t.name || t.bindClass || '未命名课表';
         const isCurrent = t.id === currentTableId;
-        const matches = matchSearch(label, keyword) || matchSearch(t.name, keyword) || matchSearch(bindClassText, keyword);
+        const matches = matchSearch(label, keyword);
         if(keyword && !matches && !isCurrent) return;
         visibleCount++;
         let selected = isCurrent ? "selected" : "";
@@ -624,87 +750,9 @@ function renderTableTags(){
 
     const currTable = tableList.find(t=>t.id === currentTableId);
     if(currTable && currentNameDom){
-        let bindClassText = currTable.bindClass ? currTable.bindClass : "未绑定";
-        currentNameDom.innerText = `${currTable.name}【${bindClassText}】`;
+        currentNameDom.innerText = currTable.name || currTable.bindClass || '未命名课表';
     }
     updateListSearchHint('tableSelectSearchHint', visibleCount, tableList.length, keyword);
-}
-// ========== 多课表操作【新建课表自动绑定默认独立课时，互不干扰】 ==========
-function addNewTable(){
-    let name = document.getElementById("newTableName").value.trim();
-    let bindClass = document.getElementById("newTableBindClass").value;
-    if(!name){alert("请输入课表名称");return;}
-    if(!bindClass){alert("请从下拉框选择绑定班级，禁止手动输入");return;}
-    const newTimeList = getNewTableTimeList();
-    const existTable = tableList.find(t => t.bindClass === bindClass);
-    if(existTable){
-        if(!confirm(`该班级【${bindClass}】已存在课表【${existTable.name}】，是否覆盖该班级原有课表数据（仅影响本班级，其他课表完全不受影响）？`)) return;
-        existTable.data = {};
-        existTable.timeList = newTimeList;
-        currentTableId = existTable.id;
-    }else{
-        let newId = "table_" + Date.now();
-        tableList.push({
-            id:newId,
-            name:name,
-            bindClass:bindClass,
-            data:{},
-            timeList:newTimeList,
-            autoScheduleConfig:{ constraints:[], settings:{ onlyEmpty:true, checkGlobal:true, spreadWeek:true } }
-        });
-        currentTableId = newId;
-    }
-    saveTableList();
-    renderTableTags();
-    renderTime();
-    renderSchedule();
-    checkAllConflict();
-    saveSnapshot();
-    document.getElementById("newTableName").value = "";
-    document.getElementById("newTableBindClass").value = "";
-}
-
-// ========== 修改绑定班级（弹窗修复） ==========
-function editCurrentTableBind(){
-    if(!currentTableId) return alert("暂无选中课表");
-    let currTable = getCurrentTableInfo();
-    if(!currTable)return;
-    let classList = getClassData();
-    let optionHtml = classList.map(c=>`<option value="${c}" ${c===currTable.bindClass?"selected":""}>${c}</option>`).join("");
-    document.getElementById("modalTitle").innerText = "修改课表绑定班级";
-    document.getElementById("modalBody").innerHTML = `
-        <div style="margin:10px 0;">
-            <label style="width:100px;display:inline-block;">当前课表：</label>
-            <span>${currTable.name}</span>
-        </div>
-        <div style="margin:10px 0;">
-            <label style="width:100px;display:inline-block;">绑定班级：</label>
-            <select id="editBindClassSelect" style="width:200px;">${optionHtml}</select>
-        </div>
-    `;
-    document.getElementById("modalFooter").innerHTML = `
-        <button onclick="closeAutoModal()">取消</button>
-        <button class="edit" onclick="saveNewBindClass()">确认修改</button>
-    `;
-    document.getElementById("autoModal").style.display = "block";
-    window.tempEditTableId = currentTableId;
-}
-function saveNewBindClass(){
-    const newBindClass = document.getElementById("editBindClassSelect").value;
-    if(!newBindClass){
-        alert("请从下拉列表选择绑定班级，禁止手动输入");
-        return;
-    }
-    const repeatTable = tableList.find(t=>t.bindClass === newBindClass && t.id !== window.tempEditTableId);
-    if(repeatTable) return alert(`班级【${newBindClass}】已绑定课表【${repeatTable.name}】，不可重复绑定`);
-    let tableIndex = tableList.findIndex(t=>t.id === window.tempEditTableId);
-    if(tableIndex !== -1){
-        tableList[tableIndex].bindClass = newBindClass;
-        saveTableList();
-        renderTableTags();
-        alert(`✅ 绑定班级已修改为：${newBindClass}`);
-    }
-    closeAutoModal();
 }
 
 function switchTable(tid){
@@ -730,13 +778,27 @@ function switchTable(tid){
 
 function delCurrentTable(){
     if(tableList.length <= 1){alert("至少保留一张课表");return;}
+    const curr = getCurrentTableInfo();
+    if(!curr) return;
+    const className = curr.bindClass || curr.name;
+    if(!confirm('确定删除课表「' + className + '」？班级列表中对应班级也将删除。')) return;
+
+    const classes = getClassData();
+    const cIdx = classes.indexOf(className);
+    if(cIdx !== -1){
+        classes.splice(cIdx, 1);
+        saveClassData(classes);
+    }
+
     let idx = tableList.findIndex(t=>t.id === currentTableId);
     tableList.splice(idx,1);
     saveTableList();
     currentTableId = tableList[0].id;
     renderTableTags();
+    renderClass();
     renderTime();
     renderSchedule();
+    renderCourseSelects();
     checkAllConflict();
     saveSnapshot();
 }
@@ -779,9 +841,21 @@ function exportScheduleToExcel(){
     }
     exportScheduleToExcelAsync(currTable);
 }
-async function exportScheduleToExcelAsync(currTable){
-    const tableData = currTable.data;
-    const timeList = getTimeData();
+
+function exportScheduleToImage(){
+    if(!currentTableId){
+        return alert("请先选中一张课表再导出");
+    }
+    const currTable = tableList.find(t => t.id === currentTableId);
+    if(!currTable){
+        return alert("未找到当前课表");
+    }
+    exportScheduleToImageAsync(currTable);
+}
+
+function buildCurrentScheduleExportHtml(currTable){
+    const tableData = currTable.data || {};
+    const timeList = currTable.timeList || getTimeData();
     const weekList = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"];
     const tableTitle = `${currTable.name} 课程表`;
 
@@ -796,66 +870,23 @@ async function exportScheduleToExcelAsync(currTable){
     maxRow = Math.max(maxRow, timeList.length - 1);
     maxCol = Math.max(maxCol, weekList.length - 1);
 
-    // 【新增】打印居中+单页适配专属CSS，和教师/教室课表规范完全统一
-    const printCSS = `
-    <style type="text/css" media="print">
-        @page {
-            size: A4 landscape;
-            margin: 7mm;
-            page-break-inside: avoid;
-        }
-        html,body{
-            margin:0;
-            padding:0;
-            width:100%;
-            height:100vh;
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            overflow: hidden;
-        }
-        table{
-            width:50% !important;
-            table-layout:fixed;
-            page-break-inside:avoid;
-            transform: scale(0.95);
-            transform-origin: center center;
-        }
-        tr,td{
-            page-break-inside:avoid;
-            overflow:hidden;
-        }
-    </style>
-    `;
-
-    let html = `<html><meta charset="utf-8">${printCSS}<body style="font-family:微软雅黑,宋体;margin:0;padding:0;">`;
-    html += `<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;">`;
-
-    // 标题行（打印居中适配）
-    html += `<tr>
-        <td colspan="8" align="center" style="font-size:22px;font-weight:bold;padding:6px 0;background:#4472C4;color:#fff;border:#000 solid 1px;">
-            ${tableTitle}
-        </td>
-    </tr>`;
-
-    // 表头行
+    let html = `<html><meta charset="utf-8"><style>${EXPORT_EXCEL_STYLE}</style><body style="font-family:微软雅黑,宋体;margin:0;padding:0;background:#fff;">`;
+    html += `<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;width:830px;">`;
+    html += `<tr><td colspan="8" align="center" style="font-size:22px;font-weight:bold;padding:6px 0;background:#4472C4;color:#fff;border:#000 solid 1px;">${tableTitle}</td></tr>`;
     html += `<tr style="font-size:11px;font-weight:bold;background:#D9D9D9;text-align:center;height:26px;">
-        <td width="12%" style="border:#000 solid 1px;">课时/星期</td>
-        <td width="12.57%" style="border:#000 solid 1px;">星期一</td>
-        <td width="12.57%" style="border:#000 solid 1px;">星期二</td>
-        <td width="12.57%" style="border:#000 solid 1px;">星期三</td>
-        <td width="12.57%" style="border:#000 solid 1px;">星期四</td>
-        <td width="12.57%" style="border:#000 solid 1px;">星期五</td>
-        <td width="12.57%" style="border:#000 solid 1px;">星期六</td>
-        <td width="12.57%" style="border:#000 solid 1px;">星期日</td>
+        <td class="time-col" style="border:#000 solid 1px;">课时/星期</td>
+        <td width="100px" style="border:#000 solid 1px;">星期一</td>
+        <td width="100px" style="border:#000 solid 1px;">星期二</td>
+        <td width="100px" style="border:#000 solid 1px;">星期三</td>
+        <td width="100px" style="border:#000 solid 1px;">星期四</td>
+        <td width="100px" style="border:#000 solid 1px;">星期五</td>
+        <td width="100px" style="border:#000 solid 1px;">星期六</td>
+        <td width="100px" style="border:#000 solid 1px;">星期日</td>
     </tr>`;
 
-    // 课时行
     for(let rowIdx = 0; rowIdx <= maxRow; rowIdx++){
         const timeName = timeList[rowIdx]?.name || `课时${rowIdx+1}`;
-        const isRestRow = timeName.includes("午饭") || timeName.includes("晚饭");
+        const isRestRow = timeName.includes("午饭") || timeName.includes("晚饭") || timeList[rowIdx]?.isSplit;
         const bg = isRestRow ? "#F2F2F2" : "#fff";
         const h = isRestRow ? "36px" : "68px";
 
@@ -865,13 +896,18 @@ async function exportScheduleToExcelAsync(currTable){
             </tr>`;
         }else{
             html += `<tr style="text-align:center;vertical-align:center;height:${h};background:${bg};font-size:10px;">
-                <td style="border:#000 solid 1px;">${timeName}</td>`;
+                <td class="time-col" style="border:#000 solid 1px;">${timeName}</td>`;
             for(let colIdx=0;colIdx<7;colIdx++){
                 const key = `${rowIdx}-${colIdx}`;
                 const val = tableData[key];
                 const cellBg = val ? "#fff" : "#F8F8F8";
                 if(val){
-                    const [course,teacher,room,cls,start,end] = val.split("|");
+                    const parts = val.split("|");
+                    const course = parts[0] || '';
+                    const teacher = parts[1] || '';
+                    const room = parts[2] || '';
+                    const start = parts[4] || '';
+                    const end = parts[5] || '';
                     const content = `<span style="font-size:11px">${course}</span><br><span style="font-size:9px">教师：${teacher}<br>教室：${room}<br>${start}-${end}</span>`;
                     html += `<td style="border:#000 solid 1px;background:${cellBg};padding:2px;">${content}</td>`;
                 }else{
@@ -883,12 +919,22 @@ async function exportScheduleToExcelAsync(currTable){
     }
 
     html += `</table></body></html>`;
+    return html;
+}
 
-    const filename = `${currTable.name}_表格居中_宽度减半课表.xls`;
+async function exportScheduleToExcelAsync(currTable){
+    const html = buildCurrentScheduleExportHtml(currTable);
+    const filename = `${currTable.name}_课表.xls`;
     const saved = await saveFileWithPicker(html, filename, {
         extensions: ['xls'], mimeType: 'application/vnd.ms-excel', utf8Bom: true
     });
     if(saved && typeof markBackupExported === 'function') markBackupExported();
+}
+
+async function exportScheduleToImageAsync(currTable){
+    const html = buildCurrentScheduleExportHtml(currTable);
+    const saved = await exportHtmlDocumentAsPng(html, `${currTable.name}_课表.png`);
+    if(saved) alert('✅ 课表图片导出成功');
 }
 function testScheduleData(){
     if(!currentTableId){
@@ -908,11 +954,11 @@ async function exportAllBackup() {
         backupType: "fullBackup",
         backupTime: new Date().toLocaleString(),
         multiTableData: JSON.parse(JSON.stringify(tableList)),
-        classList: JSON.parse(localStorage.getItem('classList') || '[]'),
-        teacherList: JSON.parse(localStorage.getItem('teacherList') || '[]'),
-        roomList: JSON.parse(localStorage.getItem('roomList') || '[]'),
-        courseList: JSON.parse(localStorage.getItem('courseList') || '[]'),
-        timeTemplateList: JSON.parse(localStorage.getItem('timeTemplateList') || '[]'),
+        classList: JSON.parse(appGetItem('classList') || '[]'),
+        teacherList: JSON.parse(appGetItem('teacherList') || '[]'),
+        roomList: JSON.parse(appGetItem('roomList') || '[]'),
+        courseList: JSON.parse(appGetItem('courseList') || '[]'),
+        timeTemplateList: JSON.parse(appGetItem('timeTemplateList') || '[]'),
         currentTableId: currentTableId || '',
         appName: getAppName(),
         appSubtitle: getAppSubtitle()
@@ -949,10 +995,10 @@ function importAllBackup() {
             }));
             saveTableList();
 
-            localStorage.setItem('classList', JSON.stringify(backupData.classList || []));
-            localStorage.setItem('teacherList', JSON.stringify(backupData.teacherList || []));
-            localStorage.setItem('roomList', JSON.stringify(backupData.roomList || []));
-            localStorage.setItem('courseList', JSON.stringify(backupData.courseList || []));
+            appSetItem('classList', JSON.stringify(backupData.classList || []));
+            appSetItem('teacherList', JSON.stringify(backupData.teacherList || []));
+            appSetItem('roomList', JSON.stringify(backupData.roomList || []));
+            appSetItem('courseList', JSON.stringify(backupData.courseList || []));
 
             if (backupData.timeTemplateList) {
                 timeTemplateList = backupData.timeTemplateList;
@@ -975,7 +1021,7 @@ function importAllBackup() {
             renderRoom();
             renderCourse();
             renderCourseSelects();
-            renderNewTableClassSelect();
+            if(typeof syncClassesAndTables === 'function') syncClassesAndTables();
             renderTimeTemplateSelect();
             renderTime();
             renderSchedule();
@@ -993,16 +1039,21 @@ function importAllBackup() {
 }
 
 // 3. 重置所有数据
-function resetAllData() {
+async function resetAllData() {
     if (!confirm('⚠️ 警告：确定要清空所有课表、班级、教师、教室、课程全部数据吗？操作后数据无法恢复！')) {
         return;
     }
-    localStorage.removeItem('multiTableData');
-    localStorage.removeItem('timeTemplateList');
-    localStorage.removeItem('classList');
-    localStorage.removeItem('teacherList');
-    localStorage.removeItem('roomList');
-    localStorage.removeItem('courseList');
+    if(typeof clearAppDataStorage === 'function'){
+        await clearAppDataStorage();
+    }else{
+        appRemoveItem('multiTableData');
+        appRemoveItem('timeTemplateList');
+        appRemoveItem('classList');
+        appRemoveItem('teacherList');
+        appRemoveItem('roomList');
+        appRemoveItem('courseList');
+    }
+    if(typeof flushAppDataNow === 'function') await flushAppDataNow();
     alert('✅ 所有数据已重置清空，页面即将刷新');
     location.reload();
 }
@@ -1098,21 +1149,32 @@ function getTableList() {
     if (Array.isArray(tableList) && tableList.length > 0) {
         return tableList;
     }
-    return JSON.parse(localStorage.getItem('multiTableData') || '[]');
+    return JSON.parse(appGetItem('multiTableData') || '[]');
 }
 
 // ===================== 跨课表合并导出（按实际时段对齐） =====================
 const EXPORT_EXCEL_STYLE = `
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 微软雅黑, 宋体; }
-    table { border-collapse: collapse; width: 800px !important; table-layout: fixed !important; }
+    table { border-collapse: collapse; width: 830px !important; table-layout: fixed !important; }
     td {
         border: 1px solid #000;
-        padding: 3px 1px;
+        padding: 3px 2px;
         text-align: center;
         vertical-align: middle;
         word-wrap: break-word !important;
         overflow-wrap: break-word !important;
         white-space: normal !important;
+    }
+    td.time-col {
+        width: 130px !important;
+        min-width: 130px !important;
+        max-width: 130px !important;
+        white-space: nowrap !important;
+        word-wrap: normal !important;
+        overflow-wrap: normal !important;
+        font-size: 10px;
+        line-height: 1.25;
+        padding: 3px 4px;
     }
     @page { size: A4 landscape; margin: 7mm; page-break-inside: avoid; }
     @media print {
@@ -1126,6 +1188,7 @@ const EXPORT_EXCEL_STYLE = `
             page-break-inside: avoid;
         }
         tr, td { page-break-inside: avoid; }
+        td.time-col { white-space: nowrap !important; }
     }
 `;
 
@@ -1226,10 +1289,10 @@ function buildResourceExportHtml(title, timeRows, assignments, formatHit){
     let html = `<html><meta charset="utf-8"><style>${EXPORT_EXCEL_STYLE}</style><body><table>`;
     html += `<tr><td colspan="8" style="font-size:22px;font-weight:bold;background:#4472C4;color:#fff;height:45px;">${title}</td></tr>`;
     html += `<tr style="font-size:11px;font-weight:bold;background:#D9D9D9;height:30px;">
-        <td width="65px">课时/星期</td>
-        <td width="105px">星期一</td><td width="105px">星期二</td><td width="105px">星期三</td>
-        <td width="105px">星期四</td><td width="105px">星期五</td>
-        <td width="105px">星期六</td><td width="105px">星期日</td>
+        <td class="time-col">课时/星期</td>
+        <td width="100px">星期一</td><td width="100px">星期二</td><td width="100px">星期三</td>
+        <td width="100px">星期四</td><td width="100px">星期五</td>
+        <td width="100px">星期六</td><td width="100px">星期日</td>
     </tr>`;
 
     timeRows.forEach(row=>{
@@ -1237,7 +1300,7 @@ function buildResourceExportHtml(title, timeRows, assignments, formatHit){
             html += `<tr><td colspan="8" style="font-size:11px;font-weight:bold;background:#F2F2F2;height:25px;">${row.label}</td></tr>`;
             return;
         }
-        html += `<tr style="height:55px;font-size:10px;"><td>${row.label}</td>`;
+        html += `<tr style="height:55px;font-size:10px;"><td class="time-col">${row.label}</td>`;
         for(let week = 0; week < 7; week++){
             const hits = findAssignmentsInExportSlot(assignments, week, row);
             const cellContent = hits.length
@@ -1281,6 +1344,28 @@ async function exportSelectedTeacherSchedule() {
     await downloadExcelHtml(`${selectedTeacher}_教师课表.xls`, html);
 }
 
+async function exportSelectedTeacherScheduleImage() {
+    const selectedTeacher = document.getElementById('exportTeacherSelect').value.trim();
+    if (!selectedTeacher) return alert('请先选择教师');
+    const allTableList = getTableList();
+    if (allTableList.length === 0) return alert('暂无课表数据');
+
+    const timeRows = buildMergedExportTimeRows(allTableList);
+    const assignments = collectResourceAssignments(allTableList, 'teacher', selectedTeacher);
+    if(assignments.length === 0){
+        return alert(`未找到教师【${selectedTeacher}】的排课记录`);
+    }
+
+    const html = buildResourceExportHtml(
+        `${selectedTeacher} 教师课程表（全部课表合并）`,
+        timeRows,
+        assignments,
+        h => `${h.course}<br>班级：${h.cls}<br>教室：${h.room}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${h.tableName}</span>`
+    );
+    const saved = await exportHtmlDocumentAsPng(html, `${selectedTeacher}_教师课表.png`);
+    if(saved) alert('✅ 教师课表图片导出成功');
+}
+
 async function exportSelectedRoomSchedule() {
     const selectedRoom = document.getElementById('exportRoomSelect').value.trim();
     if (!selectedRoom) return alert('请先选择教室');
@@ -1301,11 +1386,33 @@ async function exportSelectedRoomSchedule() {
     );
     await downloadExcelHtml(`${selectedRoom}_教室占用表.xls`, html);
 }
+
+async function exportSelectedRoomScheduleImage() {
+    const selectedRoom = document.getElementById('exportRoomSelect').value.trim();
+    if (!selectedRoom) return alert('请先选择教室');
+    const allTableList = getTableList();
+    if (allTableList.length === 0) return alert('暂无课表数据');
+
+    const timeRows = buildMergedExportTimeRows(allTableList);
+    const assignments = collectResourceAssignments(allTableList, 'room', selectedRoom);
+    if(assignments.length === 0){
+        return alert(`未找到教室【${selectedRoom}】的占用记录`);
+    }
+
+    const html = buildResourceExportHtml(
+        `${selectedRoom} 教室占用表（全部课表合并）`,
+        timeRows,
+        assignments,
+        h => `${h.course}<br>班级：${h.cls}<br>教师：${h.teacher}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${h.tableName}</span>`
+    );
+    const saved = await exportHtmlDocumentAsPng(html, `${selectedRoom}_教室占用表.png`);
+    if(saved) alert('✅ 教室占用表图片导出成功');
+}
 // 渲染导出教师下拉框
 function renderExportTeacherSelect() {
     const selectEl = document.getElementById('exportTeacherSelect');
     if (!selectEl) return;
-    const teacherArr = JSON.parse(localStorage.getItem('teacherList') || '[]');
+    const teacherArr = JSON.parse(appGetItem('teacherList') || '[]');
     selectEl.innerHTML = '<option value="">请选择教师</option>';
     teacherArr.forEach(name => {
         const opt = document.createElement('option');
@@ -1319,7 +1426,7 @@ function renderExportTeacherSelect() {
 function renderExportRoomSelect() {
     const selectEl = document.getElementById('exportRoomSelect');
     if (!selectEl) return;
-    const roomArr = JSON.parse(localStorage.getItem('roomList') || '[]');
+    const roomArr = JSON.parse(appGetItem('roomList') || '[]');
     selectEl.innerHTML = '<option value="">请选择教室</option>';
     roomArr.forEach(name => {
         const opt = document.createElement('option');
