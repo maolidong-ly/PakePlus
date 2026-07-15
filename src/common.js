@@ -126,6 +126,99 @@ function onBrandInputKeydown(e){
     if(e.key === 'Escape') cancelBrandEdit();
 }
 
+// ========== 软件内置弹窗（避免打包版原生 confirm/alert 卡死无响应） ==========
+let appDialogResolver = null;
+let appDialogMode = 'alert';
+
+function escAppDialogText(str){
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+}
+
+function resolveAppDialog(ok){
+    const mask = document.getElementById('appDialogMask');
+    const input = document.getElementById('appDialogInput');
+    const resolver = appDialogResolver;
+    appDialogResolver = null;
+    if(mask) mask.style.display = 'none';
+    if(!resolver) return;
+    if(appDialogMode === 'prompt'){
+        resolver(ok ? (input?.value ?? null) : null);
+    }else if(appDialogMode === 'confirm'){
+        resolver(!!ok);
+    }else{
+        resolver(true);
+    }
+}
+
+function openAppDialog(options){
+    options = options || {};
+    const mode = options.mode || 'alert';
+    const title = options.title || (mode === 'confirm' ? '请确认' : mode === 'prompt' ? '请输入' : '提示');
+    const message = options.message || '';
+    const defaultValue = options.defaultValue == null ? '' : String(options.defaultValue);
+
+    return new Promise(function(resolve){
+        if(appDialogResolver){
+            resolveAppDialog(false);
+        }
+        appDialogMode = mode;
+        appDialogResolver = resolve;
+
+        const mask = document.getElementById('appDialogMask');
+        const titleEl = document.getElementById('appDialogTitle');
+        const msgEl = document.getElementById('appDialogMessage');
+        const promptWrap = document.getElementById('appDialogPromptWrap');
+        const input = document.getElementById('appDialogInput');
+        const cancelBtn = document.getElementById('appDialogCancelBtn');
+        const okBtn = document.getElementById('appDialogOkBtn');
+
+        if(!mask || !msgEl){
+            // 弹窗 DOM 缺失时降级，但打包版可能仍会卡住
+            if(mode === 'confirm') resolve(window.confirm(message.replace(/<br>/g, '\n')));
+            else if(mode === 'prompt') resolve(window.prompt(message.replace(/<br>/g, '\n'), defaultValue));
+            else{ window.alert(message.replace(/<br>/g, '\n')); resolve(true); }
+            return;
+        }
+
+        if(titleEl) titleEl.textContent = title;
+        msgEl.innerHTML = escAppDialogText(message);
+        if(promptWrap) promptWrap.style.display = mode === 'prompt' ? 'block' : 'none';
+        if(cancelBtn) cancelBtn.style.display = mode === 'alert' ? 'none' : '';
+        if(okBtn) okBtn.textContent = '确定';
+        if(input){
+            input.value = defaultValue;
+            input.onkeydown = function(e){
+                if(e.key === 'Enter') resolveAppDialog(true);
+                if(e.key === 'Escape') resolveAppDialog(false);
+            };
+        }
+        mask.style.display = 'flex';
+        if(mode === 'prompt') setTimeout(function(){ input?.focus(); input?.select(); }, 30);
+        else setTimeout(function(){ okBtn?.focus(); }, 30);
+    });
+}
+
+function showAppAlert(message, title){
+    return openAppDialog({ mode: 'alert', title: title || '提示', message: message });
+}
+
+function showAppConfirm(message, title){
+    return openAppDialog({ mode: 'confirm', title: title || '请确认', message: message });
+}
+
+function showAppPrompt(message, defaultValue, title){
+    return openAppDialog({
+        mode: 'prompt',
+        title: title || '请输入',
+        message: message,
+        defaultValue: defaultValue || ''
+    });
+}
+
 // 全局变量挂载window（仅保留手动排课必需全局变量，移除自动排课模式变量）
 window.currentView = "classView";
 window.activeCell = null;
@@ -939,29 +1032,30 @@ async function exportHtmlDocumentAsPng(htmlDoc, defaultFilename){
 }
 
 // ========== 课时模版管理（全局保存，新建课表时可选用） ==========
-function saveTimeAsTemplate(){
-    if(!currentTableId) return alert("请先选中一张课表");
+async function saveTimeAsTemplate(){
+    if(!currentTableId) return showAppAlert("请先选中一张课表");
     const timeList = JSON.parse(JSON.stringify(getTimeData()));
-    if(!timeList.length) return alert("当前课表没有课时，无法保存模版");
+    if(!timeList.length) return showAppAlert("当前课表没有课时，无法保存模版");
 
     const selectDom = document.getElementById('timeTemplateSelect');
     const idx = selectDom ? selectDom.value : '';
     if(idx !== '' && timeTemplateList[idx]){
         const name = timeTemplateList[idx].name;
-        if(confirm('是否更新模版「' + name + '」？\n点「取消」可另存为新模版。')){
+        const update = await showAppConfirm('是否更新模版「' + name + '」？\n点「取消」可另存为新模版。');
+        if(update){
             timeTemplateList[idx].timeList = timeList;
             saveTimeTemplateListStorage();
             renderTimeTemplateSelect();
             if(selectDom) selectDom.value = String(idx);
-            return alert('✅ 课时模版「' + name + '」已更新');
+            return showAppAlert('课时模版「' + name + '」已更新');
         }
     }
 
-    const templateName = prompt('请输入课时模版名称');
+    const templateName = await showAppPrompt('请输入课时模版名称', '');
     if(!templateName || templateName.trim() === '') return;
     const trimmed = templateName.trim();
     if(timeTemplateList.some(function(t){ return t.name === trimmed; })){
-        return alert('该模版名称已存在，请换一个名称，或先在下拉菜单选中该模版后点保存进行更新');
+        return showAppAlert('该模版名称已存在，请换一个名称，或先在下拉菜单选中该模版后点保存进行更新');
     }
     timeTemplateList.push({ name: trimmed, timeList: timeList });
     saveTimeTemplateListStorage();
@@ -970,37 +1064,84 @@ function saveTimeAsTemplate(){
         const newIdx = timeTemplateList.findIndex(function(t){ return t.name === trimmed; });
         if(newIdx >= 0) selectDom.value = String(newIdx);
     }
-    alert('✅ 课时模版保存成功，已写入软件本地，下次打开仍可使用');
+    await showAppAlert('课时模版保存成功，已写入软件本地，下次打开仍可使用');
 }
-function applyTimeTemplate(){
+function previewTimeTemplate(){
+    const selectDom = document.getElementById('timeTemplateSelect');
+    const idx = selectDom ? selectDom.value : '';
+    if(idx === '') return showAppAlert('请先在下拉列表选择一个已保存的模版');
+    const template = timeTemplateList[idx];
+    if(!template) return showAppAlert('未找到该模版');
+
+    const list = Array.isArray(template.timeList) ? template.timeList : [];
+    let rowsHtml = '';
+    if(!list.length){
+        rowsHtml = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:18px;">该模版暂无课时</td></tr>';
+    }else{
+        list.forEach(function(item, i){
+            const name = item?.name || '';
+            const splitTag = item?.isSplit ? '<span style="color:#60a5fa;margin-left:8px;">【分割行】</span>' : '';
+            rowsHtml += `<tr>
+                <td style="text-align:center;width:56px;">${i + 1}</td>
+                <td>${escAppDialogText(name)}${splitTag}</td>
+                <td style="text-align:center;width:80px;color:var(--text-muted);font-size:12px;">${item?.isSplit ? '分割行' : '普通课时'}</td>
+            </tr>`;
+        });
+    }
+
+    document.getElementById('modalTitle').innerText = '查看模版：' + (template.name || '');
+    document.getElementById('modalBody').innerHTML = `
+        <p style="margin-bottom:12px;font-size:13px;color:var(--text-muted);">仅预览，不会修改当前课表。共 ${list.length} 条课时。</p>
+        <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:rgba(37,99,235,0.15);">
+                        <th style="padding:8px;text-align:center;">序号</th>
+                        <th style="padding:8px;text-align:left;">课时名称</th>
+                        <th style="padding:8px;text-align:center;">类型</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+    `;
+    document.getElementById('modalFooter').innerHTML = `
+        <button type="button" onclick="closeAutoModal()">关闭</button>
+        <button type="button" class="edit" onclick="closeAutoModal();applyTimeTemplate()">加载到当前课表</button>
+    `;
+    document.getElementById('autoModal').style.display = 'flex';
+}
+async function applyTimeTemplate(){
     const selectDom = document.getElementById('timeTemplateSelect');
     const idx = selectDom.value;
-    if(idx === '') return alert('请先在下拉列表选择一个已保存的模版');
-    if(!currentTableId) return alert("请先选中一张课表");
-    if(!confirm('确定用选中模版覆盖当前课表的课时设置吗？')) return;
+    if(idx === '') return showAppAlert('请先在下拉列表选择一个已保存的模版');
+    if(!currentTableId) return showAppAlert("请先选中一张课表");
+    const ok = await showAppConfirm('确定用选中模版覆盖当前课表的课时设置吗？');
+    if(!ok) return;
     saveTimeData(JSON.parse(JSON.stringify(timeTemplateList[idx].timeList)));
     renderTime();
     renderSchedule();
     checkAllConflict();
     saveSnapshot();
-    alert('✅ 模版加载完成，当前课表课时已更新');
+    await showAppAlert('模版加载完成，当前课表课时已更新');
 }
-function renameTimeTemplate(){
+async function renameTimeTemplate(){
     const selectDom = document.getElementById('timeTemplateSelect');
     const idx = selectDom.value;
-    if(idx === '') return alert('请先选择要重命名的模版');
-    const newName = prompt('请输入模版新名称', timeTemplateList[idx].name);
+    if(idx === '') return showAppAlert('请先选择要重命名的模版');
+    const newName = await showAppPrompt('请输入模版新名称', timeTemplateList[idx].name);
     if(newName && newName.trim() !== ''){
         timeTemplateList[idx].name = newName.trim();
         saveTimeTemplateListStorage();
         renderTimeTemplateSelect();
     }
 }
-function delTimeTemplate(){
+async function delTimeTemplate(){
     const selectDom = document.getElementById('timeTemplateSelect');
     const idx = selectDom.value;
-    if(idx === '') return alert('请先选择要删除的模版');
-    if(!confirm('确定永久删除该课时模版吗？')) return;
+    if(idx === '') return showAppAlert('请先选择要删除的模版');
+    const ok = await showAppConfirm('确定永久删除该课时模版吗？');
+    if(!ok) return;
     timeTemplateList.splice(idx, 1);
     saveTimeTemplateListStorage();
     renderTimeTemplateSelect();
