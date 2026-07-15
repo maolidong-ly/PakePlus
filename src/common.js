@@ -943,14 +943,11 @@ async function tauriWriteBlob(path, blob){
     if(!normalizedPath || !blob) return false;
     const tauri = window.__TAURI__;
     const buffer = await blob.arrayBuffer();
-    const bytes = Array.from(new Uint8Array(buffer));
+    const u8 = new Uint8Array(buffer);
     try{
+        // 必须写二进制 Uint8Array；普通数组在部分 Tauri 上会被写成 "137,80,78,71,..." 文本
         if(tauri?.fs?.writeFile){
-            await tauri.fs.writeFile(normalizedPath, bytes);
-            return true;
-        }
-        if(tauri.core?.invoke){
-            await tauri.core.invoke('plugin:fs|write_file', { path: normalizedPath, contents: bytes });
+            await tauri.fs.writeFile(normalizedPath, u8);
             return true;
         }
     }catch(err){
@@ -959,35 +956,33 @@ async function tauriWriteBlob(path, blob){
     return false;
 }
 
-/** 保存二进制文件（如 PNG 图片） */
+/** 保存二进制文件（如 PNG）——优先 Blob 直写/下载，避免坏文件 */
 async function saveBlobWithPicker(blob, defaultFilename, extensions){
     extensions = extensions || [defaultFilename.split('.').pop()].filter(Boolean);
     const safeFilename = sanitizeDefaultFilename(defaultFilename);
 
-    if(isWindowsDesktop()){
-        if(typeof window.showSaveFilePicker === 'function'){
-            const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
-            if(fsaResult === true) return true;
-            if(fsaResult === false) return false;
-        }
-        browserDownloadFallback(blob, safeFilename);
-        return true;
+    // 1) 系统文件选择器（二进制正确）
+    if(typeof window.showSaveFilePicker === 'function'){
+        const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
+        if(fsaResult === true) return true;
+        if(fsaResult === false) return false;
     }
 
+    // 2) 打包版：尝试 Uint8Array 写入；失败则下载到默认目录（保证能打开）
     if(isDesktopApp()){
         const path = await tauriPickSavePath(safeFilename, extensions);
         if(path === null) return false;
         if(path){
             const ok = await tauriWriteBlob(path, blob);
             if(ok) return true;
-            browserDownloadFallback(blob, ensureFileExtension(extractBasename(path) || safeFilename, extensions).split(/[/\\]/).pop());
+            const chosenName = sanitizeDefaultFilename(extractBasename(path) || safeFilename);
+            browserDownloadFallback(blob, ensureFileExtension(chosenName, extensions).split(/[/\\]/).pop());
+            alert('图片已保存到下载文件夹（所选位置写入失败）：\n' + chosenName);
             return true;
         }
     }
 
-    const fsaResult = await browserPickSaveBlob(blob, safeFilename, extensions);
-    if(fsaResult === true) return true;
-    if(fsaResult === false) return false;
+    // 3) 浏览器下载
     browserDownloadFallback(blob, safeFilename);
     return true;
 }
