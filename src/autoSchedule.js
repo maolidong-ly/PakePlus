@@ -277,11 +277,11 @@ function runAutoScheduleForTeacher(){
     }
 }
 
-function clearTeacherInCurrentTable(){
+async function clearTeacherInCurrentTable(){
     if(!currentTableId) return alert('请先选中课表');
     const teacher = document.getElementById('autoTeacherSelect')?.value;
     if(!teacher) return alert('请选择教师');
-    if(!confirm(`确定清除【${teacher}】在当前课表中的所有排课吗？`)) return;
+    if(!(await showAppConfirm(`确定清除【${teacher}】在当前课表中的所有排课吗？`))) return;
 
     const table = getAutoConfigTable();
     const timeArr = table.timeList;
