@@ -79,6 +79,9 @@ function clearCell(){
 
 // ========== 单元格操作 ==========
 function clickCell(cell){
+    if(typeof canEditData === 'function' && !canEditData()){
+        return alert('当前账号为只读，无法排课。请使用编辑或管理员账号登录。');
+    }
     if(!currentTableId) return alert("暂无选中课表，无法排课");
 
     const key = cell.dataset.key;
