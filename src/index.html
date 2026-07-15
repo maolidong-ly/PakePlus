@@ -310,12 +310,14 @@ body.light-mode .status-label{
     font-weight: 600;
 }
 body.light-mode .tab-top button{
-    color: #475569;
+    color: #334155;
     font-weight: 500;
+    background: #eef2f7;
+    border-color: rgba(15, 23, 42, 0.1);
 }
 body.light-mode .tab-top button:hover{
     color: #0f172a;
-    background: rgba(37, 99, 235, 0.08);
+    background: #e2e8f0;
 }
 body.light-mode .mode-view-bar .tab-style-btn,
 body.light-mode .schedule-tools .tab-style-btn,
@@ -465,13 +467,13 @@ h1{color:inherit;}
     flex: 1;
     min-width: 0;
     padding: 11px 8px;
-    border: 1px solid transparent;
-    background: transparent;
+    border: 1px solid var(--border);
+    background: rgba(148, 163, 184, 0.12);
     border-radius: var(--radius-sm);
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    color: var(--text-muted);
+    color: var(--text-color);
     transition: var(--transition);
     font-family: var(--font-ui);
     letter-spacing: 0.2px;
@@ -479,10 +481,18 @@ h1{color:inherit;}
 }
 .tab-top button:hover{
     color: var(--text-color);
-    background: rgba(96, 165, 250, 0.08);
+    background: rgba(96, 165, 250, 0.16);
+    border-color: var(--border-hover);
+}
+body.light-mode .tab-top button{
+    background: #eef2f7;
+    border-color: rgba(15, 23, 42, 0.1);
+    color: #334155;
 }
 body.light-mode .tab-top button:hover{
-    background: rgba(59, 130, 246, 0.06);
+    background: #e2e8f0;
+    border-color: rgba(37, 99, 235, 0.35);
+    color: #0f172a;
 }
 .tab-top button.active{
     background: linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%);
@@ -493,6 +503,8 @@ body.light-mode .tab-top button:hover{
 body.light-mode .tab-top button.active,
 body.light-mode .tab-top button.active:hover{
     color: #fff !important;
+    background: linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%);
+    border-color: transparent;
     box-shadow: 0 2px 10px rgba(37, 99, 235, 0.25);
 }
 body.light-mode .mode-view-bar .tab-style-btn.active,
@@ -1503,6 +1515,31 @@ table .del:hover{
     justify-content:center;
     z-index:999;
 }
+.app-dialog-mask{
+    z-index: 100000;
+}
+.app-dialog-wrap{
+    min-width: min(420px, 92vw);
+    max-width: 520px;
+}
+.app-dialog-prompt{
+    margin-top: 14px;
+}
+.app-dialog-prompt input{
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    color: var(--text-color);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    outline: none;
+}
+.app-dialog-prompt input:focus{
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
 .modal-wrap{
     background:var(--bg-elevated);
     padding:28px 32px;
@@ -2168,6 +2205,27 @@ body.light-mode .occ-free-chip{
     content: '👤';
     font-size: 12px;
 }
+.lan-role-badge{
+    display: none;
+    align-items: center;
+    padding: 7px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 600;
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+body.lan-readonly .schedule-action-bar .sab-btn-primary[onclick*="clear"],
+body.lan-readonly .schedule-action-bar button[onclick*="clearCell"],
+body.lan-readonly .schedule-action-bar button[onclick*="clearAll"],
+body.lan-readonly .schedule-action-bar button[onclick*="saveSnapshot"]{
+    opacity: 0.45;
+    pointer-events: none;
+}
+body.lan-readonly #scheduleTable td{
+    cursor: default;
+}
 .user-manage-wrap{
     min-width: min(520px, 92vw);
     max-width: 560px;
@@ -2250,6 +2308,7 @@ body.light-mode .occ-free-chip{
 .form-row .btn-red,
 .form-row .btn-blue,
 .form-row .btn-green,
+.form-row .btn-ghost,
 .top-operate .btn-blue,
 .top-operate .btn-red,
 .top-operate .btn-orange{
@@ -2267,6 +2326,7 @@ body.light-mode .occ-free-chip{
 .form-row .btn-red:hover,
 .form-row .btn-blue:hover,
 .form-row .btn-green:hover,
+.form-row .btn-ghost:hover,
 .top-operate .btn-blue:hover,
 .top-operate .btn-red:hover,
 .top-operate .btn-orange:hover{
@@ -2359,6 +2419,8 @@ body.light-mode .occ-free-chip{
     <div class="header-actions">
         <span id="licenseTrialBadge" class="license-trial-badge" title="试用期"></span>
         <span id="currentUserLabel" class="header-user-label" title="当前登录用户"></span>
+        <span id="lanRoleBadge" class="lan-role-badge" title="局域网权限"></span>
+        <button class="btn-ghost" type="button" onclick="openLanModal()" title="局域网主机连接与同步">局域网</button>
         <button class="btn-ghost" type="button" onclick="openUserManageModal()" title="添加或删除用户、修改密码">用户管理</button>
         <button class="btn-ghost" type="button" onclick="logoutUser()" title="退出当前登录">退出登录</button>
         <button class="btn-ghost" id="themeToggleBtn" title="切换主题">主题</button>
@@ -2411,11 +2473,12 @@ body.light-mode .occ-free-chip{
         <select id="timeTemplateSelect">
             <option value="">选择已保存模版</option>
         </select>
+        <button class="btn-orange" onclick="previewTimeTemplate()">查看模版</button>
         <button class="btn-blue" onclick="applyTimeTemplate()">加载模版</button>
         <button class="btn-green" onclick="saveTimeAsTemplate()">保存模版</button>
-        <button class="btn-ghost" onclick="renameTimeTemplate()">重命名</button>
-        <button class="btn-ghost" onclick="delTimeTemplate()">删除</button>
-        <span class="backup-hint">编辑完课时后点「保存模版」，模版会保存在软件中，无需导出文件</span>
+        <button class="btn-blue" onclick="renameTimeTemplate()">重命名</button>
+        <button class="btn-red" onclick="delTimeTemplate()">删除</button>
+        <span class="backup-hint">可先「查看模版」预览；确认后再「加载模版」。编辑完点「保存模版」写入软件本地</span>
     </div>
     <table>
         <thead>
@@ -2831,6 +2894,20 @@ body.light-mode .occ-free-chip{
 </main>
 </div><!-- /.app-shell -->
 
+<div id="appDialogMask" class="modal-mask app-dialog-mask">
+    <div class="modal-wrap app-dialog-wrap" onclick="event.stopPropagation()">
+        <div class="modal-title" id="appDialogTitle">提示</div>
+        <div class="exit-modal-body" id="appDialogMessage"></div>
+        <div id="appDialogPromptWrap" class="app-dialog-prompt" style="display:none;">
+            <input type="text" id="appDialogInput" maxlength="80" autocomplete="off">
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="appDialogCancelBtn" onclick="resolveAppDialog(false)">取消</button>
+            <button type="button" class="edit" id="appDialogOkBtn" onclick="resolveAppDialog(true)">确定</button>
+        </div>
+    </div>
+</div>
+
 <div id="autoModal" class="modal-mask">
     <div class="modal-wrap">
         <div class="modal-title" id="modalTitle"></div>
@@ -2854,8 +2931,14 @@ body.light-mode .occ-free-chip{
             <div class="user-manage-form">
                 <input type="text" id="newAuthUsername" placeholder="用户名" maxlength="40">
                 <input type="password" id="newAuthPassword" placeholder="密码" maxlength="64">
+                <select id="newAuthRole" title="权限">
+                    <option value="viewer">只读</option>
+                    <option value="editor">编辑</option>
+                    <option value="admin">管理员</option>
+                </select>
                 <button type="button" class="sab-btn sab-btn-primary" onclick="addAuthUserFromForm()">添加</button>
             </div>
+            <p class="user-manage-note">权限说明：管理员=可编辑+管用户；编辑=可改课表；只读=仅查看。局域网下权限跟随账号，不限电脑。</p>
         </div>
         <div class="user-manage-section">
             <h4>修改我的密码</h4>
@@ -2868,6 +2951,43 @@ body.light-mode .occ-free-chip{
         </div>
         <div class="modal-footer">
             <button type="button" onclick="closeUserManageModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div id="lanModal" class="modal-mask" onclick="if(event.target===this)closeLanModal()">
+    <div class="modal-wrap user-manage-wrap" onclick="event.stopPropagation()">
+        <div class="modal-title">局域网同步</div>
+        <p class="user-manage-note" style="margin-bottom:14px;">
+            指定一台电脑作主机：先运行 <code>lan-server/启动主机-*.bat/command</code>，再在本机「初始化主机」上传账号与数据。
+            其他电脑填写主机 IP，用有权限账号登录即可；管理员/编辑可在任意电脑执行全部编辑功能，只读账号仅可查看。
+        </p>
+        <div class="user-manage-section">
+            <h4>主机地址</h4>
+            <div class="user-manage-form">
+                <input type="text" id="lanHostInput" placeholder="主机 IP，如 192.168.1.8" maxlength="64">
+                <input type="number" id="lanPortInput" placeholder="端口" value="17890" min="1" max="65535" style="max-width:100px;">
+                <button type="button" class="sab-btn" onclick="onLanProbeClick()">检测主机</button>
+            </div>
+            <p id="lanStatusText" class="user-manage-note">未连接（本机独立使用）</p>
+        </div>
+        <div class="user-manage-section">
+            <h4>本机作为主机（首次）</h4>
+            <div class="user-manage-form">
+                <button type="button" class="sab-btn sab-btn-primary" onclick="onLanBootstrapClick()">初始化主机并上传本机数据</button>
+            </div>
+        </div>
+        <div class="user-manage-section">
+            <h4>其他电脑连接主机</h4>
+            <div class="user-manage-form">
+                <input type="text" id="lanLoginUser" placeholder="用户名" maxlength="40">
+                <input type="password" id="lanLoginPass" placeholder="密码" maxlength="64">
+                <button type="button" class="sab-btn sab-btn-primary" onclick="onLanConnectClick()">连接并登录</button>
+                <button type="button" class="sab-btn" onclick="onLanDisconnectClick()">断开</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" onclick="closeLanModal()">关闭</button>
         </div>
     </div>
 </div>
@@ -2894,6 +3014,7 @@ body.light-mode .occ-free-chip{
 <script src="common.js"></script>
 <script src="license.js"></script>
 <script src="localStore.js"></script>
+<script src="lanSync.js"></script>
 <script src="auth.js"></script>
 <script src="baseManage.js"></script>
 <script src="scheduleRender.js"></script>
@@ -2983,9 +3104,11 @@ window.onload = async function(){
     const licensed = await initLicenseCheck();
     if(licensed && typeof initAuthCheck === 'function') initAuthCheck();
     if(typeof initAppDataStorage === 'function') await initAppDataStorage();
+    if(typeof hookLanDataWrites === 'function') hookLanDataWrites();
     initLocalStorage();
     if(typeof syncClassesAndTables === 'function') syncClassesAndTables();
     if(typeof initTimeTemplates === 'function') await initTimeTemplates();
+    if(typeof initLanSync === 'function') initLanSync();
     if(typeof applyAppBranding === 'function') applyAppBranding();
     renderTableTags();
     renderTimeTemplateSelect();
