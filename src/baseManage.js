@@ -250,13 +250,13 @@ function addClass(){
     alert('✅ 班级「' + name + '」已创建，同名课表已自动生成');
 }
 
-function delClass(idx){
+async function delClass(idx){
     const arr = getClassData();
     const className = arr[idx];
     if(tableList.length <= 1 && findTableByClassName(className)){
         return alert("至少保留一个班级/课表");
     }
-    if(!confirm('确定删除班级「' + className + '」？对应课表及排课数据将一并删除。')) return;
+    if(!(await showAppConfirm('确定删除班级「' + className + '」？对应课表及排课数据将一并删除。'))) return;
 
     arr.splice(idx, 1);
     saveClassData(arr);
@@ -776,12 +776,12 @@ function switchTable(tid){
     }
 }
 
-function delCurrentTable(){
+async function delCurrentTable(){
     if(tableList.length <= 1){alert("至少保留一张课表");return;}
     const curr = getCurrentTableInfo();
     if(!curr) return;
     const className = curr.bindClass || curr.name;
-    if(!confirm('确定删除课表「' + className + '」？班级列表中对应班级也将删除。')) return;
+    if(!(await showAppConfirm('确定删除课表「' + className + '」？班级列表中对应班级也将删除。'))) return;
 
     const classes = getClassData();
     const cIdx = classes.indexOf(className);
@@ -805,7 +805,7 @@ function delCurrentTable(){
 
 // 一键清空当前选中课表所有单元格数据
 let clearAllLock = false;
-function clearAllCurrentTable(){
+async function clearAllCurrentTable(){
     if(clearAllLock) return;
     if(!currentTableId){
         return alert("请先选中一张课表再操作");
@@ -818,7 +818,7 @@ function clearAllCurrentTable(){
     if(!hasData){
         return alert("当前课表没有课程数据，无需清空");
     }
-    if(!confirm("确定要清空当前这张课表所有课程数据吗？该操作不可撤销！")){
+    if(!(await showAppConfirm("确定要清空当前这张课表所有课程数据吗？该操作不可撤销！"))){
         return;
     }
     clearAllLock = true;
@@ -1040,7 +1040,7 @@ function importAllBackup() {
 
 // 3. 重置所有数据
 async function resetAllData() {
-    if (!confirm('⚠️ 警告：确定要清空所有课表、班级、教师、教室、课程全部数据吗？操作后数据无法恢复！')) {
+    if (!(await showAppConfirm('警告：确定要清空所有课表、班级、教师、教室、课程全部数据吗？操作后数据无法恢复！'))) {
         return;
     }
     if(typeof clearAppDataStorage === 'function'){
@@ -1092,7 +1092,7 @@ function importSingleTableBackup() {
     const file = fileInputDom.files[0];
     const reader = new FileReader();
 
-    reader.onload = function (e) {
+    reader.onload = async function (e) {
         try {
             const backupData = JSON.parse(e.target.result);
             if (backupData.backupType !== "singleTableBackup") {
@@ -1112,12 +1112,12 @@ function importSingleTableBackup() {
 
             const existTableIndex = tableList.findIndex(t => t.bindClass === importTable.bindClass && importTable.bindClass);
             if (existTableIndex > -1) {
-                if (!confirm(`班级【${importTable.bindClass}】已有课表，是否覆盖？`)) return;
+                if (!(await showAppConfirm(`班级【${importTable.bindClass}】已有课表，是否覆盖？`))) return;
                 tableList[existTableIndex] = importTable;
             } else {
                 const idConflict = tableList.findIndex(t => t.id === importTable.id);
                 if (idConflict > -1) {
-                    if (!confirm(`课表【${importTable.name}】已存在，是否覆盖？`)) return;
+                    if (!(await showAppConfirm(`课表【${importTable.name}】已存在，是否覆盖？`))) return;
                     tableList[idConflict] = importTable;
                 } else {
                     tableList.push(importTable);
