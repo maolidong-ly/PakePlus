@@ -27,14 +27,18 @@ function initTimeSelect() {
     const startSel = document.getElementById('startTimeSelect');
     const endSel = document.getElementById('endTimeSelect');
     if (!startSel || !endSel) return;
+    const prevStart = startSel.value;
+    const prevEnd = endSel.value;
 
-    startSel.innerHTML = '<option value="">请选择开始时间</option>';
-    endSel.innerHTML = '<option value="">请选择结束时间</option>';
+    startSel.innerHTML = '<option value="">'+(typeof t==='function'?t('schedule.selectStart'):'请选择开始时间')+'</option>';
+    endSel.innerHTML = '<option value="">'+(typeof t==='function'?t('schedule.selectEnd'):'请选择结束时间')+'</option>';
 
     TIME_OPTIONS.forEach(time => {
         startSel.innerHTML += `<option value="${time}">${time}</option>`;
         endSel.innerHTML += `<option value="${time}">${time}</option>`;
     });
+    if(prevStart) startSel.value = prevStart;
+    if(prevEnd) endSel.value = prevEnd;
 }
 
 /**
@@ -45,7 +49,7 @@ function initTimeSelect() {
  */
 function validTimeRange(start, end) {
     if (!start || !end) {
-        alert('请选择开始时间和结束时间');
+        alert(typeof t==='function'?t('msg.needStartEnd'):'请选择开始时间和结束时间');
         return false;
     }
     const toMin = (timeStr) => {
@@ -96,9 +100,13 @@ function updateListSearchHint(hintId, visible, total, keyword){
     const hint = document.getElementById(hintId);
     if(!hint) return;
     if(!keyword){
-        hint.textContent = total > 0 ? `共 ${total} 条` : '';
+        hint.textContent = total > 0
+            ? (typeof t==='function'?t('msg.countTotal',{n:total}):`共 ${total} 条`)
+            : '';
     }else{
-        hint.textContent = visible > 0 ? `找到 ${visible} / ${total} 条` : '无匹配结果';
+        hint.textContent = visible > 0
+            ? (typeof t==='function'?t('msg.countFound',{n:visible,m:total}):`找到 ${visible} / ${total} 条`)
+            : (typeof t==='function'?t('msg.noMatch'):'无匹配结果');
     }
 }
 function courseItemMatchesSearch(item, keyword){
@@ -147,13 +155,16 @@ function renderTime(){
     let arr=getTimeData();let html="";
     arr.forEach((item,idx)=>{
         const name = item.name;
-        const splitTag = item.isSplit ? '<span style="color:#2563eb;margin-left:8px;">【分割行】</span>' : '';
+        const nameDisplay = (typeof displayPeriodLabel==='function'?displayPeriodLabel(name):name);
+        const splitTag = item.isSplit
+            ? '<span style="color:#2563eb;margin-left:8px;">'+(typeof t==='function'?t('msg.splitRow'):'【分割行】')+'</span>'
+            : '';
         html+=`<tr>
             <td>${idx+1}</td>
-            <td ondblclick="editTime(${idx},'${name.replace(/'/g,"\\'")}',${item.isSplit},this)">${name}${splitTag}</td>
+            <td ondblclick="editTime(${idx},'${name.replace(/'/g,"\\'")}',${item.isSplit},this)">${nameDisplay}${splitTag}</td>
             <td>
-                <button class="edit" onclick="editTime(${idx},'${name.replace(/'/g,"\\'")}',${item.isSplit},this.parentElement.previousElementSibling)">修改</button>
-                <button class="del" onclick="delTime(${idx})">删除</button>
+                <button class="edit" onclick="editTime(${idx},'${name.replace(/'/g,"\\'")}',${item.isSplit},this.parentElement.previousElementSibling)">${typeof t==='function'?t('common.edit'):'修改'}</button>
+                <button class="del" onclick="delTime(${idx})">${typeof t==='function'?t('common.delete'):'删除'}</button>
             </td>
         </tr>`;
     });
@@ -296,7 +307,7 @@ function editClass(idx){
     `;
     document.getElementById("modalFooter").innerHTML = `
         <button onclick="closeAutoModal()">取消</button>
-        <button class="edit" onclick="saveEditClassName(${idx})">确认修改</button>
+        <button class="edit" onclick="saveEditClassName(${idx})">${typeof t==='function'?t('common.save'):'确认修改'}</button>
     `;
     document.getElementById("autoModal").style.display = "block";
 }
@@ -347,8 +358,8 @@ function renderClass(){
         if(!matchSearch(item, keyword)) return;
         visibleCount++;
         html += `<tr><td>${visibleCount}</td><td>${escCourseHtml(item)}</td><td>
-            <button class="edit" onclick="editClass(${idx})">修改</button>
-            <button class="del" onclick="delClass(${idx})">删除</button>
+            <button class="edit" onclick="editClass(${idx})">${typeof t==='function'?t('common.edit'):'修改'}</button>
+            <button class="del" onclick="delClass(${idx})">${typeof t==='function'?t('common.delete'):'删除'}</button>
         </td></tr>`;
     });
     if(!html){
@@ -380,7 +391,7 @@ function editTeacher(idx){
     `;
     document.getElementById("modalFooter").innerHTML = `
         <button onclick="closeAutoModal()">取消</button>
-        <button class="edit" onclick="saveEditTeacherName(${idx})">确认修改</button>
+        <button class="edit" onclick="saveEditTeacherName(${idx})">${typeof t==='function'?t('common.save'):'确认修改'}</button>
     `;
     document.getElementById("autoModal").style.display = "block";
 }
@@ -406,8 +417,8 @@ function renderTeacher(){
         if(!matchSearch(item, keyword)) return;
         visibleCount++;
         html += `<tr><td>${visibleCount}</td><td>${escCourseHtml(item)}</td><td>
-            <button class="edit" onclick="editTeacher(${idx})">修改</button>
-            <button class="del" onclick="delTeacher(${idx})">删除</button>
+            <button class="edit" onclick="editTeacher(${idx})">${typeof t==='function'?t('common.edit'):'修改'}</button>
+            <button class="del" onclick="delTeacher(${idx})">${typeof t==='function'?t('common.delete'):'删除'}</button>
         </td></tr>`;
     });
     if(!html){
@@ -439,7 +450,7 @@ function editRoom(idx){
     `;
     document.getElementById("modalFooter").innerHTML = `
         <button onclick="closeAutoModal()">取消</button>
-        <button class="edit" onclick="saveEditRoomName(${idx})">确认修改</button>
+        <button class="edit" onclick="saveEditRoomName(${idx})">${typeof t==='function'?t('common.save'):'确认修改'}</button>
     `;
     document.getElementById("autoModal").style.display = "block";
 }
@@ -460,8 +471,8 @@ function renderRoom(){
     let arr=getRoomData();let html="";
     arr.forEach((item,idx)=>{
         html+=`<tr><td>${idx+1}</td><td>${item}</td><td>
-            <button class="edit" onclick="editRoom(${idx})">修改</button>
-            <button class="del" onclick="delRoom(${idx})">删除</button>
+            <button class="edit" onclick="editRoom(${idx})">${typeof t==='function'?t('common.edit'):'修改'}</button>
+            <button class="del" onclick="delRoom(${idx})">${typeof t==='function'?t('common.delete'):'删除'}</button>
         </td></tr>`;
     });
     // 修复点：原来 document.getElementById('roomList') → 改为 roomTableBody
@@ -506,11 +517,14 @@ function getAllCourseNameArr(){
 
 function renderCourseNameSelect(){
     const allNameArr = getAllCourseNameArr();
-    let optHtml = `<option value="">请选择课程名称</option>`;
+    const placeholder = (typeof t==='function'?t('course.selectName'):'请选择课程名称');
+    let optHtml = `<option value="">${placeholder}</option>`;
     allNameArr.forEach(name=>{
-        optHtml += `<option value="${name}">${name}</option>`;
+        const label = (typeof displayCourseName==='function'?displayCourseName(name):name);
+        optHtml += `<option value="${escCourseHtml(name)}">${escCourseHtml(label)}</option>`;
     });
-    document.getElementById("courseNameSelect").innerHTML = optHtml;
+    const el = document.getElementById("courseNameSelect");
+    if(el) el.innerHTML = optHtml;
 }
 
 function escCourseHtml(str){
@@ -533,7 +547,8 @@ function buildCourseRowHtml(idx, item, allNameArr, teacherList, roomList, classL
     let nameSelect = `<select onchange="updateCourseField(${idx},'name',this.value)" style="width:120px;padding:4px;">`;
     allNameArr.forEach(name=>{
         const selected = name === item.name ? "selected" : "";
-        nameSelect += `<option value="${escCourseHtml(name)}" ${selected}>${escCourseHtml(name)}</option>`;
+        const label = (typeof displayCourseName==='function'?displayCourseName(name):name);
+        nameSelect += `<option value="${escCourseHtml(name)}" ${selected}>${escCourseHtml(label)}</option>`;
     });
     nameSelect += `</select>`;
 
@@ -550,7 +565,7 @@ function buildCourseRowHtml(idx, item, allNameArr, teacherList, roomList, classL
         <td>${tSelect}</td>
         <td>${rSelect}</td>
         <td>${cSelect}</td>
-        <td><button class="del" onclick="delCourse(${idx})">删除</button></td>
+        <td><button class="del" onclick="delCourse(${idx})">${typeof t==='function'?t('common.delete'):'删除'}</button></td>
     </tr>`;
 }
 
@@ -609,7 +624,11 @@ function renderCourse(){
     const keyword = getListSearchKeyword('courseSearchInput');
     const groupBySelect = document.getElementById('courseGroupBy');
     const dimension = groupBySelect ? groupBySelect.value : 'cls';
-    const dimensionLabel = { cls:'班级', teacher:'教师', room:'教室' }[dimension] || '班级';
+    const dimensionLabel = {
+        cls: (typeof t==='function'?t('nav.class'):'班级'),
+        teacher: (typeof t==='function'?t('nav.teacher'):'教师'),
+        room: (typeof t==='function'?t('nav.room'):'教室')
+    }[dimension] || (typeof t==='function'?t('nav.class'):'班级');
 
     const openKeys = new Set();
     if(!keyword){
@@ -655,9 +674,13 @@ function renderCourse(){
     if(hint){
         if(keyword){
             const matchedCount = groups.reduce((sum, [, indices]) => sum + indices.length, 0);
-            hint.textContent = `找到 ${matchedCount} 条课程，${groups.length} 个${dimensionLabel}分组`;
+            hint.textContent = (typeof t==='function'
+                ? t('msg.courseGroupFound',{n:matchedCount,g:groups.length,dim:dimensionLabel})
+                : `找到 ${matchedCount} 条课程，${groups.length} 个${dimensionLabel}分组`);
         }else if(groups.length > 0){
-            hint.textContent = `共 ${arr.length} 条课程，${groups.length} 个${dimensionLabel}分组`;
+            hint.textContent = (typeof t==='function'
+                ? t('msg.courseGroupHint',{n:arr.length,g:groups.length,dim:dimensionLabel})
+                : `共 ${arr.length} 条课程，${groups.length} 个${dimensionLabel}分组`);
         }else{
             hint.textContent = '';
         }
@@ -667,9 +690,9 @@ function renderCourse(){
 // ========== 下拉选项渲染【已修改：课程只展示当前课表绑定班级】 ==========
 function renderCourseSelects(){
     let tData=getTeacherData();let rData=getRoomData();let clsData=getClassData();let cData=getCourseData();
-    let s1='<option value="">选择教师</option>';tData.forEach(x=>s1+=`<option value="${x}">${x}</option>`);document.getElementById("courseTeacher").innerHTML=s1;
-    let s2='<option value="">选择场地</option>';rData.forEach(x=>s2+=`<option value="${x}">${x}</option>`);document.getElementById("courseRoom").innerHTML=s2;
-    let s3='<option value="">选择学员组</option>';clsData.forEach(x=>s3+=`<option value="${x}">${x}</option>`);document.getElementById("courseClass").innerHTML=s3;
+    let s1='<option value="">'+(typeof t==='function'?t('course.selectTeacher'):'选择教师')+'</option>';tData.forEach(x=>s1+=`<option value="${x}">${x}</option>`);document.getElementById("courseTeacher").innerHTML=s1;
+    let s2='<option value="">'+(typeof t==='function'?t('course.selectRoom'):'选择场地')+'</option>';rData.forEach(x=>s2+=`<option value="${x}">${x}</option>`);document.getElementById("courseRoom").innerHTML=s2;
+    let s3='<option value="">'+(typeof t==='function'?t('course.selectClass'):'选择学员组')+'</option>';clsData.forEach(x=>s3+=`<option value="${x}">${x}</option>`);document.getElementById("courseClass").innerHTML=s3;
 
     // 按当前课表绑定班级过滤课程
     const currentTable = getCurrentTableInfo();
@@ -679,13 +702,16 @@ function renderCourseSelects(){
         filterCourseList = cData.filter(item => item.cls.trim() === bindClass);
     }
 
-    let s4='<option value="">请选择课程</option>';
+    let s4='<option value="">'+(typeof t==='function'?t('course.selectName'):'请选择课程')+'</option>';
     if(filterCourseList.length === 0){
-        s4 = '<option value="" disabled>当前班级暂无可用课程，请前往课程管理添加</option>';
+        s4 = '<option value="" disabled>'+(typeof t==='function'?t('msg.noCourseForClass'):'当前班级暂无可用课程，请前往课程管理添加')+'</option>';
     }else{
         filterCourseList.forEach(x=>{
             const valKey = `${x.name}|${x.teacher}|${x.room}|${x.cls}`;
-            const showTxt = `${x.name} | 教师：${x.teacher} | 教室：${x.room} | 班级：${x.cls}`;
+            const nameLabel = (typeof displayCourseName==='function'?displayCourseName(x.name):x.name);
+            const showTxt = (typeof t==='function')
+                ? t('course.optionLine',{name:nameLabel,teacher:x.teacher,room:x.room,cls:x.cls})
+                : `${x.name} | 教师：${x.teacher} | 教室：${x.room} | 班级：${x.cls}`;
             const selected = valKey === lastSelectCourseValue ? "selected" : "";
             s4+=`<option value="${valKey}" ${selected}>${showTxt}</option>`;
         });
@@ -697,7 +723,7 @@ function renderCourseSelects(){
 function renderTimeTemplateSelect(){
     const timeSelect = document.getElementById('timeTemplateSelect');
     if(timeSelect){
-        timeSelect.innerHTML = '<option value="">选择已保存模版</option>';
+        timeSelect.innerHTML = '<option value="">'+(typeof t==='function'?t('time.templateSelect'):'选择已保存模版')+'</option>';
         timeTemplateList.forEach((item, index)=>{
             const option = document.createElement('option');
             option.value = index;
@@ -707,7 +733,7 @@ function renderTimeTemplateSelect(){
     }
     const newClassSelect = document.getElementById('newClassTimeTemplate');
     if(newClassSelect){
-        newClassSelect.innerHTML = '<option value="default">默认课时</option>';
+        newClassSelect.innerHTML = '<option value="default">'+(typeof t==='function'?t('class.defaultTime'):'默认课时')+'</option>';
         timeTemplateList.forEach((item, index)=>{
             const option = document.createElement('option');
             option.value = index;
@@ -725,32 +751,37 @@ function renderTableTags(){
     const keyword = getListSearchKeyword('tableSelectSearch');
     let html = "";
     let visibleCount = 0;
+    const unnamed = (typeof t==='function'?t('msg.unnamedTable'):'未命名课表');
+    const noneLabel = (typeof t==='function'?t('msg.noTimetable'):'暂无课表');
+    const noMatchLabel = (typeof t==='function'?t('msg.noMatchTable'):'无匹配课表');
 
     if(tableList.length === 0){
-        select.innerHTML = '<option value="">暂无课表</option>';
-        if(currentNameDom) currentNameDom.innerText = "暂无";
+        select.innerHTML = '<option value="">'+noneLabel+'</option>';
+        if(currentNameDom) currentNameDom.innerText = noneLabel;
         updateListSearchHint('tableSelectSearchHint', 0, 0, keyword);
         return;
     }
 
-    tableList.forEach(t=>{
-        const label = t.name || t.bindClass || '未命名课表';
-        const isCurrent = t.id === currentTableId;
-        const matches = matchSearch(label, keyword);
+    tableList.forEach(item=>{
+        const rawLabel = item.name || item.bindClass || unnamed;
+        const label = (typeof displayLocaleText==='function'?displayLocaleText(rawLabel):rawLabel);
+        const isCurrent = item.id === currentTableId;
+        const matches = matchSearch(rawLabel, keyword) || matchSearch(label, keyword);
         if(keyword && !matches && !isCurrent) return;
         visibleCount++;
         let selected = isCurrent ? "selected" : "";
-        html += `<option value="${t.id}" ${selected}>${label}</option>`;
+        html += `<option value="${item.id}" ${selected}>${label}</option>`;
     });
 
     if(!html){
-        html = '<option value="">无匹配课表</option>';
+        html = '<option value="">'+noMatchLabel+'</option>';
     }
     select.innerHTML = html;
 
-    const currTable = tableList.find(t=>t.id === currentTableId);
+    const currTable = tableList.find(item=>item.id === currentTableId);
     if(currTable && currentNameDom){
-        currentNameDom.innerText = currTable.name || currTable.bindClass || '未命名课表';
+        const raw = currTable.name || currTable.bindClass || unnamed;
+        currentNameDom.innerText = (typeof displayLocaleText==='function'?displayLocaleText(raw):raw);
     }
     updateListSearchHint('tableSelectSearchHint', visibleCount, tableList.length, keyword);
 }
@@ -856,8 +887,24 @@ function exportScheduleToImage(){
 function buildCurrentScheduleExportHtml(currTable){
     const tableData = currTable.data || {};
     const timeList = currTable.timeList || getTimeData();
-    const weekList = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"];
-    const tableTitle = `${currTable.name} 课程表`;
+    const tt = (typeof t === 'function') ? t : (k, v) => {
+        if (k === 'export.scheduleTitle') return (v && v.name ? v.name : '') + ' 课程表';
+        if (k === 'export.periodFallback') return '课时' + (v && v.n != null ? v.n : '');
+        if (k === 'export.teacher') return '教师：' + (v && v.name != null ? v.name : '');
+        if (k === 'export.room') return '教室：' + (v && v.name != null ? v.name : '');
+        const weekMap = {
+            'export.corner': '课时/星期',
+            'export.week.mon': '星期一', 'export.week.tue': '星期二', 'export.week.wed': '星期三',
+            'export.week.thu': '星期四', 'export.week.fri': '星期五', 'export.week.sat': '星期六', 'export.week.sun': '星期日'
+        };
+        return weekMap[k] || k;
+    };
+    const dispPeriod = (typeof displayPeriodLabel === 'function') ? displayPeriodLabel : (s) => s;
+    const dispCourse = (typeof displayCourseName === 'function') ? displayCourseName : (s) => s;
+    const dispLocale = (typeof displayLocaleText === 'function') ? displayLocaleText : (s) => s;
+    const weekKeys = ['export.week.mon','export.week.tue','export.week.wed','export.week.thu','export.week.fri','export.week.sat','export.week.sun'];
+    const weekList = weekKeys.map(k => tt(k));
+    const tableTitle = tt('export.scheduleTitle', { name: dispLocale(currTable.name || '') });
 
     let maxRow = 0, maxCol = 0;
     Object.keys(tableData).forEach(key => {
@@ -870,23 +917,20 @@ function buildCurrentScheduleExportHtml(currTable){
     maxRow = Math.max(maxRow, timeList.length - 1);
     maxCol = Math.max(maxCol, weekList.length - 1);
 
-    let html = `<html><meta charset="utf-8"><style>${EXPORT_EXCEL_STYLE}</style><body style="font-family:微软雅黑,宋体;margin:0;padding:0;background:#fff;">`;
+    let html = `<html><meta charset="utf-8"><style>${EXPORT_EXCEL_STYLE}</style><body style="font-family:微软雅黑,宋体,Arial,sans-serif;margin:0;padding:0;background:#fff;">`;
     html += `<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;width:830px;">`;
     html += `<tr><td colspan="8" align="center" style="font-size:22px;font-weight:bold;padding:6px 0;background:#4472C4;color:#fff;border:#000 solid 1px;">${tableTitle}</td></tr>`;
     html += `<tr style="font-size:11px;font-weight:bold;background:#D9D9D9;text-align:center;height:26px;">
-        <td class="time-col" style="border:#000 solid 1px;">课时/星期</td>
-        <td width="100px" style="border:#000 solid 1px;">星期一</td>
-        <td width="100px" style="border:#000 solid 1px;">星期二</td>
-        <td width="100px" style="border:#000 solid 1px;">星期三</td>
-        <td width="100px" style="border:#000 solid 1px;">星期四</td>
-        <td width="100px" style="border:#000 solid 1px;">星期五</td>
-        <td width="100px" style="border:#000 solid 1px;">星期六</td>
-        <td width="100px" style="border:#000 solid 1px;">星期日</td>
-    </tr>`;
+        <td class="time-col" style="border:#000 solid 1px;">${tt('export.corner')}</td>`;
+    weekList.forEach(w => {
+        html += `<td width="100px" style="border:#000 solid 1px;">${w}</td>`;
+    });
+    html += `</tr>`;
 
     for(let rowIdx = 0; rowIdx <= maxRow; rowIdx++){
-        const timeName = timeList[rowIdx]?.name || `课时${rowIdx+1}`;
-        const isRestRow = timeName.includes("午饭") || timeName.includes("晚饭") || timeList[rowIdx]?.isSplit;
+        const timeNameRaw = timeList[rowIdx]?.name || tt('export.periodFallback', { n: rowIdx + 1 });
+        const timeName = dispPeriod(timeNameRaw);
+        const isRestRow = /午饭|晚饭/.test(String(timeNameRaw)) || timeList[rowIdx]?.isSplit;
         const bg = isRestRow ? "#F2F2F2" : "#fff";
         const h = isRestRow ? "36px" : "68px";
 
@@ -903,12 +947,12 @@ function buildCurrentScheduleExportHtml(currTable){
                 const cellBg = val ? "#fff" : "#F8F8F8";
                 if(val){
                     const parts = val.split("|");
-                    const course = parts[0] || '';
+                    const course = dispCourse(parts[0] || '');
                     const teacher = parts[1] || '';
-                    const room = parts[2] || '';
+                    const room = dispLocale(parts[2] || '');
                     const start = parts[4] || '';
                     const end = parts[5] || '';
-                    const content = `<span style="font-size:11px">${course}</span><br><span style="font-size:9px">教师：${teacher}<br>教室：${room}<br>${start}-${end}</span>`;
+                    const content = `<span style="font-size:11px">${course}</span><br><span style="font-size:9px">${tt('export.teacher',{name:teacher})}<br>${tt('export.room',{name:room})}<br>${start}-${end}</span>`;
                     html += `<td style="border:#000 solid 1px;background:${cellBg};padding:2px;">${content}</td>`;
                 }else{
                     html += `<td style="border:#000 solid 1px;background:${cellBg};padding:2px;"></td>`;
@@ -924,7 +968,10 @@ function buildCurrentScheduleExportHtml(currTable){
 
 async function exportScheduleToExcelAsync(currTable){
     const html = buildCurrentScheduleExportHtml(currTable);
-    const filename = `${currTable.name}_课表.xls`;
+    const base = (typeof t === 'function')
+        ? t('export.fileSchedule', { name: currTable.name })
+        : `${currTable.name}_课表`;
+    const filename = `${base}.xls`;
     const saved = await saveFileWithPicker(html, filename, {
         extensions: ['xls'], mimeType: 'application/vnd.ms-excel', utf8Bom: true
     });
@@ -933,8 +980,11 @@ async function exportScheduleToExcelAsync(currTable){
 
 async function exportScheduleToImageAsync(currTable){
     const html = buildCurrentScheduleExportHtml(currTable);
-    const saved = await exportHtmlDocumentAsPng(html, `${currTable.name}_课表.png`);
-    if(saved) alert('✅ 课表图片导出成功');
+    const base = (typeof t === 'function')
+        ? t('export.fileSchedule', { name: currTable.name })
+        : `${currTable.name}_课表`;
+    const saved = await exportHtmlDocumentAsPng(html, `${base}.png`);
+    if(saved) alert(typeof t === 'function' ? t('export.imageOk') : '✅ 课表图片导出成功');
 }
 function testScheduleData(){
     if(!currentTableId){
@@ -1286,21 +1336,27 @@ function findAssignmentsInExportSlot(assignments, weekIdx, slot){
 }
 
 function buildResourceExportHtml(title, timeRows, assignments, formatHit){
+    const tt = (typeof t === 'function') ? t : (k) => ({
+        'export.corner': '课时/星期',
+        'export.week.mon': '星期一', 'export.week.tue': '星期二', 'export.week.wed': '星期三',
+        'export.week.thu': '星期四', 'export.week.fri': '星期五', 'export.week.sat': '星期六', 'export.week.sun': '星期日'
+    }[k] || k);
+    const dispPeriod = (typeof displayPeriodLabel === 'function') ? displayPeriodLabel : (s) => s;
+    const weekKeys = ['export.week.mon','export.week.tue','export.week.wed','export.week.thu','export.week.fri','export.week.sat','export.week.sun'];
+
     let html = `<html><meta charset="utf-8"><style>${EXPORT_EXCEL_STYLE}</style><body><table>`;
     html += `<tr><td colspan="8" style="font-size:22px;font-weight:bold;background:#4472C4;color:#fff;height:45px;">${title}</td></tr>`;
     html += `<tr style="font-size:11px;font-weight:bold;background:#D9D9D9;height:30px;">
-        <td class="time-col">课时/星期</td>
-        <td width="100px">星期一</td><td width="100px">星期二</td><td width="100px">星期三</td>
-        <td width="100px">星期四</td><td width="100px">星期五</td>
-        <td width="100px">星期六</td><td width="100px">星期日</td>
-    </tr>`;
+        <td class="time-col">${tt('export.corner')}</td>`;
+    weekKeys.forEach(k => { html += `<td width="100px">${tt(k)}</td>`; });
+    html += `</tr>`;
 
     timeRows.forEach(row=>{
         if(row.type === 'split'){
-            html += `<tr><td colspan="8" style="font-size:11px;font-weight:bold;background:#F2F2F2;height:25px;">${row.label}</td></tr>`;
+            html += `<tr><td colspan="8" style="font-size:11px;font-weight:bold;background:#F2F2F2;height:25px;">${dispPeriod(row.label)}</td></tr>`;
             return;
         }
-        html += `<tr style="height:55px;font-size:10px;"><td class="time-col">${row.label}</td>`;
+        html += `<tr style="height:55px;font-size:10px;"><td class="time-col">${dispPeriod(row.label)}</td>`;
         for(let week = 0; week < 7; week++){
             const hits = findAssignmentsInExportSlot(assignments, week, row);
             const cellContent = hits.length
@@ -1325,95 +1381,111 @@ async function downloadExcelHtml(filename, html){
 
 async function exportSelectedTeacherSchedule() {
     const selectedTeacher = document.getElementById('exportTeacherSelect').value.trim();
-    if (!selectedTeacher) return alert('请先选择教师');
+    if (!selectedTeacher) return alert(typeof t==='function'?t('schedule.selectTeacher'):'请先选择教师');
     const allTableList = getTableList();
-    if (allTableList.length === 0) return alert('暂无课表数据');
+    if (allTableList.length === 0) return alert(typeof t==='function'?t('msg.noTimetable'):'暂无课表数据');
 
     const timeRows = buildMergedExportTimeRows(allTableList);
     const assignments = collectResourceAssignments(allTableList, 'teacher', selectedTeacher);
     if(assignments.length === 0){
-        return alert(`未找到教师【${selectedTeacher}】的排课记录`);
+        return alert(typeof t==='function'?t('export.noTeacherLessons',{name:selectedTeacher}):`未找到教师【${selectedTeacher}】的排课记录`);
     }
 
+    const dispCourse = (typeof displayCourseName === 'function') ? displayCourseName : (s) => s;
+    const dispLocale = (typeof displayLocaleText === 'function') ? displayLocaleText : (s) => s;
+    const tt = (typeof t === 'function') ? t : null;
     const html = buildResourceExportHtml(
-        `${selectedTeacher} 教师课程表（全部课表合并）`,
+        tt ? tt('export.teacherScheduleTitle', { name: selectedTeacher }) : `${selectedTeacher} 教师课程表（全部课表合并）`,
         timeRows,
         assignments,
-        h => `${h.course}<br>班级：${h.cls}<br>教室：${h.room}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${h.tableName}</span>`
+        h => `${dispCourse(h.course)}<br>${tt?tt('export.class',{name:dispLocale(h.cls)}):('班级：'+h.cls)}<br>${tt?tt('export.room',{name:dispLocale(h.room)}):('教室：'+h.room)}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${dispLocale(h.tableName)}</span>`
     );
-    await downloadExcelHtml(`${selectedTeacher}_教师课表.xls`, html);
+    const base = tt ? tt('export.fileTeacher', { name: selectedTeacher }) : `${selectedTeacher}_教师课表`;
+    await downloadExcelHtml(`${base}.xls`, html);
 }
 
 async function exportSelectedTeacherScheduleImage() {
     const selectedTeacher = document.getElementById('exportTeacherSelect').value.trim();
-    if (!selectedTeacher) return alert('请先选择教师');
+    if (!selectedTeacher) return alert(typeof t==='function'?t('schedule.selectTeacher'):'请先选择教师');
     const allTableList = getTableList();
-    if (allTableList.length === 0) return alert('暂无课表数据');
+    if (allTableList.length === 0) return alert(typeof t==='function'?t('msg.noTimetable'):'暂无课表数据');
 
     const timeRows = buildMergedExportTimeRows(allTableList);
     const assignments = collectResourceAssignments(allTableList, 'teacher', selectedTeacher);
     if(assignments.length === 0){
-        return alert(`未找到教师【${selectedTeacher}】的排课记录`);
+        return alert(typeof t==='function'?t('export.noTeacherLessons',{name:selectedTeacher}):`未找到教师【${selectedTeacher}】的排课记录`);
     }
 
+    const dispCourse = (typeof displayCourseName === 'function') ? displayCourseName : (s) => s;
+    const dispLocale = (typeof displayLocaleText === 'function') ? displayLocaleText : (s) => s;
+    const tt = (typeof t === 'function') ? t : null;
     const html = buildResourceExportHtml(
-        `${selectedTeacher} 教师课程表（全部课表合并）`,
+        tt ? tt('export.teacherScheduleTitle', { name: selectedTeacher }) : `${selectedTeacher} 教师课程表（全部课表合并）`,
         timeRows,
         assignments,
-        h => `${h.course}<br>班级：${h.cls}<br>教室：${h.room}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${h.tableName}</span>`
+        h => `${dispCourse(h.course)}<br>${tt?tt('export.class',{name:dispLocale(h.cls)}):('班级：'+h.cls)}<br>${tt?tt('export.room',{name:dispLocale(h.room)}):('教室：'+h.room)}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${dispLocale(h.tableName)}</span>`
     );
-    const saved = await exportHtmlDocumentAsPng(html, `${selectedTeacher}_教师课表.png`);
-    if(saved) alert('✅ 教师课表图片导出成功');
+    const base = tt ? tt('export.fileTeacher', { name: selectedTeacher }) : `${selectedTeacher}_教师课表`;
+    const saved = await exportHtmlDocumentAsPng(html, `${base}.png`);
+    if(saved) alert(tt ? tt('export.teacherImageOk') : '✅ 教师课表图片导出成功');
 }
 
 async function exportSelectedRoomSchedule() {
     const selectedRoom = document.getElementById('exportRoomSelect').value.trim();
-    if (!selectedRoom) return alert('请先选择教室');
+    if (!selectedRoom) return alert(typeof t==='function'?t('schedule.selectRoom'):'请先选择教室');
     const allTableList = getTableList();
-    if (allTableList.length === 0) return alert('暂无课表数据');
+    if (allTableList.length === 0) return alert(typeof t==='function'?t('msg.noTimetable'):'暂无课表数据');
 
     const timeRows = buildMergedExportTimeRows(allTableList);
     const assignments = collectResourceAssignments(allTableList, 'room', selectedRoom);
     if(assignments.length === 0){
-        return alert(`未找到教室【${selectedRoom}】的占用记录`);
+        return alert(typeof t==='function'?t('export.noRoomLessons',{name:selectedRoom}):`未找到教室【${selectedRoom}】的占用记录`);
     }
 
+    const dispCourse = (typeof displayCourseName === 'function') ? displayCourseName : (s) => s;
+    const dispLocale = (typeof displayLocaleText === 'function') ? displayLocaleText : (s) => s;
+    const tt = (typeof t === 'function') ? t : null;
     const html = buildResourceExportHtml(
-        `${selectedRoom} 教室占用表（全部课表合并）`,
+        tt ? tt('export.roomScheduleTitle', { name: dispLocale(selectedRoom) }) : `${selectedRoom} 教室占用表（全部课表合并）`,
         timeRows,
         assignments,
-        h => `${h.course}<br>班级：${h.cls}<br>教师：${h.teacher}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${h.tableName}</span>`
+        h => `${dispCourse(h.course)}<br>${tt?tt('export.class',{name:dispLocale(h.cls)}):('班级：'+h.cls)}<br>${tt?tt('export.teacher',{name:h.teacher}):('教师：'+h.teacher)}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${dispLocale(h.tableName)}</span>`
     );
-    await downloadExcelHtml(`${selectedRoom}_教室占用表.xls`, html);
+    const base = tt ? tt('export.fileRoom', { name: selectedRoom }) : `${selectedRoom}_教室占用表`;
+    await downloadExcelHtml(`${base}.xls`, html);
 }
 
 async function exportSelectedRoomScheduleImage() {
     const selectedRoom = document.getElementById('exportRoomSelect').value.trim();
-    if (!selectedRoom) return alert('请先选择教室');
+    if (!selectedRoom) return alert(typeof t==='function'?t('schedule.selectRoom'):'请先选择教室');
     const allTableList = getTableList();
-    if (allTableList.length === 0) return alert('暂无课表数据');
+    if (allTableList.length === 0) return alert(typeof t==='function'?t('msg.noTimetable'):'暂无课表数据');
 
     const timeRows = buildMergedExportTimeRows(allTableList);
     const assignments = collectResourceAssignments(allTableList, 'room', selectedRoom);
     if(assignments.length === 0){
-        return alert(`未找到教室【${selectedRoom}】的占用记录`);
+        return alert(typeof t==='function'?t('export.noRoomLessons',{name:selectedRoom}):`未找到教室【${selectedRoom}】的占用记录`);
     }
 
+    const dispCourse = (typeof displayCourseName === 'function') ? displayCourseName : (s) => s;
+    const dispLocale = (typeof displayLocaleText === 'function') ? displayLocaleText : (s) => s;
+    const tt = (typeof t === 'function') ? t : null;
     const html = buildResourceExportHtml(
-        `${selectedRoom} 教室占用表（全部课表合并）`,
+        tt ? tt('export.roomScheduleTitle', { name: dispLocale(selectedRoom) }) : `${selectedRoom} 教室占用表（全部课表合并）`,
         timeRows,
         assignments,
-        h => `${h.course}<br>班级：${h.cls}<br>教师：${h.teacher}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${h.tableName}</span>`
+        h => `${dispCourse(h.course)}<br>${tt?tt('export.class',{name:dispLocale(h.cls)}):('班级：'+h.cls)}<br>${tt?tt('export.teacher',{name:h.teacher}):('教师：'+h.teacher)}<br>${h.start}-${h.end}<br><span style="font-size:9px;color:#666;">${dispLocale(h.tableName)}</span>`
     );
-    const saved = await exportHtmlDocumentAsPng(html, `${selectedRoom}_教室占用表.png`);
-    if(saved) alert('✅ 教室占用表图片导出成功');
+    const base = tt ? tt('export.fileRoom', { name: selectedRoom }) : `${selectedRoom}_教室占用表`;
+    const saved = await exportHtmlDocumentAsPng(html, `${base}.png`);
+    if(saved) alert(tt ? tt('export.roomImageOk') : '✅ 教室占用表图片导出成功');
 }
 // 渲染导出教师下拉框
 function renderExportTeacherSelect() {
     const selectEl = document.getElementById('exportTeacherSelect');
     if (!selectEl) return;
     const teacherArr = JSON.parse(appGetItem('teacherList') || '[]');
-    selectEl.innerHTML = '<option value="">请选择教师</option>';
+    selectEl.innerHTML = '<option value="">'+(typeof t==='function'?t('schedule.selectTeacher'):'请选择教师')+'</option>';
     teacherArr.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
@@ -1427,7 +1499,7 @@ function renderExportRoomSelect() {
     const selectEl = document.getElementById('exportRoomSelect');
     if (!selectEl) return;
     const roomArr = JSON.parse(appGetItem('roomList') || '[]');
-    selectEl.innerHTML = '<option value="">请选择教室</option>';
+    selectEl.innerHTML = '<option value="">'+(typeof t==='function'?t('schedule.selectRoom'):'请选择教室')+'</option>';
     roomArr.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
