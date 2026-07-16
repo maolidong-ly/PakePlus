@@ -215,20 +215,40 @@ async function clearTrialRecord(deviceKey){
 function updateLicenseStatusBadge(status, daysLeft){
     const badge = document.getElementById('licenseTrialBadge');
     if(!badge) return;
-    if(status === 'activated'){
+    badge.dataset.licenseStatus = status || '';
+    if(typeof daysLeft === 'number') badge.dataset.daysLeft = String(daysLeft);
+    if(status === 'activated' || status === 'hidden' || !status){
         badge.style.display = 'none';
         badge.textContent = '';
+        badge.removeAttribute('title');
+        badge.onclick = null;
         return;
     }
     if(status === 'trial' && daysLeft > 0){
         badge.style.display = 'inline-flex';
-        badge.textContent = daysLeft + ' 天试用';
-        badge.title = '试用期剩余 ' + daysLeft + ' 天，到期后需输入激活码。点击可提前激活';
+        badge.textContent = (typeof t==='function'?t('msg.trialDays',{n:daysLeft}):(daysLeft + ' 天试用'));
+        badge.title = (typeof t==='function'?t('msg.trialLeft',{n:daysLeft}):('试用期剩余 ' + daysLeft + ' 天，到期后需输入激活码。点击可提前激活'));
         badge.onclick = openLicenseModalForActivate;
         return;
     }
     badge.style.display = 'none';
     badge.textContent = '';
+    badge.onclick = null;
+}
+
+/** 语言切换后按当前缓存状态重刷试用角标文案 */
+function refreshLicenseStatusBadge(){
+    const badge = document.getElementById('licenseTrialBadge');
+    if(!badge) return;
+    const status = badge.dataset.licenseStatus || '';
+    const daysLeft = parseInt(badge.dataset.daysLeft || '0', 10);
+    if(status === 'trial' && daysLeft > 0){
+        updateLicenseStatusBadge('trial', daysLeft);
+    }else if(status === 'activated'){
+        updateLicenseStatusBadge('activated');
+    }else if(status){
+        updateLicenseStatusBadge(status, daysLeft);
+    }
 }
 
 function showLicenseModal(mode){
@@ -242,9 +262,9 @@ function showLicenseModal(mode){
     if(inputWrap) inputWrap.style.display = '';
     if(hint){
         if(mode === 'trial-expired'){
-            hint.textContent = '100 天试用期已结束，请输入激活码继续使用。请将机器码发给管理员获取激活码。';
+            hint.textContent = (typeof t==='function'?t('msg.trialExpired'):'100 天试用期已结束，请输入激活码继续使用。请将机器码发给管理员获取激活码。');
         }else{
-            hint.textContent = '首次使用自动享有 100 天试用。如需永久授权，请将机器码发给管理员获取激活码。';
+            hint.textContent = (typeof t==='function'?t('msg.trialFirst'):'首次使用自动享有 100 天试用。如需永久授权，请将机器码发给管理员获取激活码。');
         }
     }
 }
