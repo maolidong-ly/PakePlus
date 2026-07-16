@@ -5,11 +5,21 @@ const LAN_SESSION_KEY = 'schedule_lan_session';
 const LAN_UPDATED_KEY = 'schedule_lan_updated_at';
 const LAN_DEFAULT_PORT = 17890;
 
-const ROLE_LABELS = {
-    admin: '管理员（可编辑+管用户）',
-    editor: '编辑（可编辑课表）',
-    viewer: '只读（仅查看）'
-};
+function getRoleLabels(){
+    if(typeof t === 'function'){
+        return {
+            admin: t('role.adminFull'),
+            editor: t('role.editorFull'),
+            viewer: t('role.viewerFull')
+        };
+    }
+    return {
+        admin: '管理员（可编辑+管用户）',
+        editor: '编辑（可编辑课表）',
+        viewer: '只读（仅查看）'
+    };
+}
+const ROLE_LABELS = getRoleLabels();
 
 let lanPollTimer = null;
 let lanPushTimer = null;
@@ -317,9 +327,9 @@ async function pushLanBundle(force){
         if(err.status === 409){
             await pullLanBundle(true);
             if(typeof showAppAlert === 'function'){
-                await showAppAlert('主机数据已更新，已为你刷新；请再确认后重新保存。');
+                await showAppAlert(typeof t==='function'?t('msg.lanDataUpdated'):'主机数据已更新，已为你刷新；请再确认后重新保存。');
             }else{
-                alert('主机数据已更新，已为你刷新；请再确认后重新保存。');
+                alert(typeof t==='function'?t('msg.lanDataUpdated'):'主机数据已更新，已为你刷新；请再确认后重新保存。');
             }
             return false;
         }
@@ -363,7 +373,7 @@ function applyLanUiPermissions(){
     if(badge){
         if(isLanMode() && u){
             badge.style.display = 'inline-flex';
-            badge.textContent = (editable ? '可编辑' : '只读') + ' · ' + (ROLE_LABELS[u.role] || u.role);
+            badge.textContent = (editable ? (typeof t==='function'?t('msg.lanEditable'):'可编辑') : (typeof t==='function'?t('msg.lanReadonly'):'只读')) + ' · ' + (getRoleLabels()[u.role] || u.role);
         }else{
             badge.style.display = 'none';
         }
@@ -405,7 +415,7 @@ function updateLanStatusUi(){
     }else if(cfg.enabled){
         el.textContent = '已填写主机，但尚未登录局域网账号';
     }else{
-        el.textContent = '未连接（本机独立使用）';
+        el.textContent = (typeof t==='function'?t('lan.statusOffline'):'未连接（本机独立使用）');
     }
 }
 
@@ -431,9 +441,9 @@ async function onLanProbeClick(){
     try{
         const data = await lanProbe(host, port);
         const ips = (data.ips || []).join(', ');
-        await showAppAlert('主机在线。\n可连接地址：' + (ips || host) + '\n当前用户数：' + (data.userCount || 0));
+        await showAppAlert(typeof t==='function'?t('msg.lanProbeOk',{ips:(ips||host),count:(data.userCount||0)}):('主机在线。\n可连接地址：'+(ips||host)+'\n当前用户数：'+(data.userCount||0)));
     }catch(e){
-        await showAppAlert('无法连接主机：' + (e.message || e) + '\n请确认已在主机电脑运行「启动主机」脚本，且防火墙放行端口 ' + port);
+        await showAppAlert(typeof t==='function'?t('msg.lanProbeFail',{err:(e.message||e),port:port}):('无法连接主机：'+(e.message||e)+'\n请确认已在主机电脑运行「启动主机」脚本，且防火墙放行端口 '+port));
     }
 }
 
@@ -443,11 +453,11 @@ async function onLanBootstrapClick(){
     try{
         await lanProbe(host, port);
         const data = await bootstrapLanHost(host, port);
-        await showAppAlert('主机初始化成功。\n其他电脑请连接：' + ((data.ips || [])[0] || host) + ':' + port + '\n然后用有权限的账号登录即可编辑。');
+        await showAppAlert(typeof t==='function'?t('msg.lanBootstrapOk',{addr:(((data.ips||[])[0]||host)+':'+port)}):('主机初始化成功。\n其他电脑请连接：'+((data.ips||[])[0]||host)+':'+port+'\n然后用有权限的账号登录即可编辑。'));
         closeLanModal();
         if(typeof hideLoginMask === 'function') hideLoginMask();
     }catch(e){
-        await showAppAlert('初始化失败：' + (e.message || e));
+        await showAppAlert(typeof t==='function'?t('msg.lanBootstrapFail',{err:(e.message||e)}):('初始化失败：'+(e.message||e)));
     }
 }
 
@@ -456,24 +466,24 @@ async function onLanConnectClick(){
     const port = document.getElementById('lanPortInput')?.value || LAN_DEFAULT_PORT;
     const username = document.getElementById('lanLoginUser')?.value || '';
     const password = document.getElementById('lanLoginPass')?.value || '';
-    if(!host) return showAppAlert('请填写主机 IP');
-    if(!username || !password) return showAppAlert('请填写局域网登录用户名和密码');
+    if(!host) return showAppAlert(typeof t==='function'?t('msg.lanNeedHost'):'请填写主机 IP');
+    if(!username || !password) return showAppAlert(typeof t==='function'?t('msg.lanNeedLogin'):'请填写局域网登录用户名和密码');
     try{
         await lanProbe(host, port);
         await connectLanHost(host, port, username, password);
-        await showAppAlert('已连接局域网主机。权限跟随账号：有编辑权限即可在本机完整操作。');
+        await showAppAlert(typeof t==='function'?t('msg.lanConnected'):'已连接局域网主机。权限跟随账号：有编辑权限即可在本机完整操作。');
         closeLanModal();
         if(typeof hideLoginMask === 'function') hideLoginMask();
         if(typeof updateAuthHeader === 'function') updateAuthHeader();
     }catch(e){
-        await showAppAlert('连接失败：' + (e.message || e));
+        await showAppAlert(typeof t==='function'?t('msg.lanConnectFail',{err:(e.message||e)}):('连接失败：'+(e.message||e)));
     }
 }
 
 async function onLanDisconnectClick(){
-    if(!(await showAppConfirm('确定断开局域网主机？将回到本机本地数据。'))) return;
+    if(!(await showAppConfirm(typeof t==='function'?t('msg.lanConfirmDisconnect'):'确定断开局域网主机？将回到本机本地数据。'))) return;
     disconnectLan();
-    await showAppAlert('已断开局域网连接');
+    await showAppAlert(typeof t==='function'?t('msg.lanDisconnected'):'已断开局域网连接');
     closeLanModal();
 }
 
