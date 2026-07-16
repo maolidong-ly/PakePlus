@@ -87,14 +87,21 @@ function getEffectiveUser(){
         }
         return null;
     }
-    const local = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
-    if(!local) return null;
-    return {
-        username: local.username,
-        role: normalizeRole(local.role),
-        password: local.password,
-        lan: false
-    };
+    // 不要回调 getCurrentUser，避免循环依赖
+    try{
+        const session = JSON.parse(localStorage.getItem('schedule_auth_session') || 'null');
+        if(!session || !session.username) return null;
+        const local = (typeof findAuthUser === 'function') ? findAuthUser(session.username) : null;
+        if(!local) return null;
+        return {
+            username: local.username,
+            role: normalizeRole(local.role),
+            password: local.password,
+            lan: false
+        };
+    }catch(e){
+        return null;
+    }
 }
 
 function canEditData(){
@@ -119,6 +126,13 @@ async function lanFetch(path, options){
     let data = {};
     try{ data = await res.json(); }catch(e){}
     if(!res.ok){
+        // 主机重启后内存会话会失效：清掉局域网登录态，但绝不碰本地账号表
+        if(res.status === 401 && path !== '/api/login'){
+            clearLanSession();
+            stopLanPolling();
+            updateLanStatusUi();
+            if(typeof updateAuthHeader === 'function') updateAuthHeader();
+        }
         const err = new Error(data.error || ('请求失败 ' + res.status));
         err.status = res.status;
         err.data = data;
@@ -127,10 +141,19 @@ async function lanFetch(path, options){
     return data;
 }
 
+const LAN_BUNDLE_KEYS = ['multiTableData', 'classList', 'teacherList', 'roomList', 'courseList', 'timeTemplateList'];
+const LAN_PROTECTED_KEYS = [
+    'schedule_auth_users',
+    'schedule_auth_session',
+    'schedule_lan_cfg',
+    'schedule_lan_token',
+    'schedule_lan_session',
+    'schedule_lan_updated_at'
+];
+
 function collectLocalBundle(){
-    const keys = ['multiTableData', 'classList', 'teacherList', 'roomList', 'courseList', 'timeTemplateList'];
     const bundle = {};
-    keys.forEach(function(k){
+    LAN_BUNDLE_KEYS.forEach(function(k){
         const val = (typeof appGetItem === 'function') ? appGetItem(k) : localStorage.getItem(k);
         if(val != null) bundle[k] = val;
     });
@@ -139,19 +162,37 @@ function collectLocalBundle(){
 
 function applyRemoteBundle(bundle){
     if(!bundle || typeof bundle !== 'object') return;
-    Object.keys(bundle).forEach(function(k){
-        if(typeof appSetItem === 'function') appSetItem(k, bundle[k]);
-        else localStorage.setItem(k, bundle[k]);
-    });
-    if(typeof flushAppDataNow === 'function'){
-        flushAppDataNow().catch(function(){});
+    // 应用主机数据时禁止再触发 queueLanPush，否则会互相推送、反复刷新 UI
+    const prevSkip = window.__lanSkipPush;
+    window.__lanSkipPush = true;
+    try{
+        // 只写入课表相关键，绝不覆盖本地账号/会话/授权
+        LAN_BUNDLE_KEYS.forEach(function(k){
+            if(bundle[k] == null) return;
+            if(LAN_PROTECTED_KEYS.indexOf(k) !== -1) return;
+            if(typeof appSetItem === 'function') appSetItem(k, bundle[k]);
+            else localStorage.setItem(k, bundle[k]);
+        });
+        if(typeof flushAppDataNow === 'function'){
+            flushAppDataNow().catch(function(){});
+        }
+    }finally{
+        window.__lanSkipPush = prevSkip;
     }
 }
 
 function reloadUiFromStorage(){
     try{
+        // 同步刷新时保留本机当前课表选择（不跟主机/其他电脑抢焦点）
+        const keepTableId = (typeof currentTableId !== 'undefined') ? currentTableId : '';
         if(typeof initLocalStorage === 'function') initLocalStorage();
+        if(keepTableId && typeof tableList !== 'undefined' && tableList.some(function(t){ return t.id === keepTableId; })){
+            currentTableId = keepTableId;
+        }
         if(typeof syncClassesAndTables === 'function') syncClassesAndTables();
+        if(keepTableId && typeof tableList !== 'undefined' && tableList.some(function(t){ return t.id === keepTableId; })){
+            currentTableId = keepTableId;
+        }
         if(typeof timeTemplateList !== 'undefined'){
             timeTemplateList = JSON.parse((typeof appGetItem === 'function' ? appGetItem('timeTemplateList') : localStorage.getItem('timeTemplateList')) || '[]');
         }
@@ -245,10 +286,12 @@ async function pullLanBundle(forceReload){
 }
 
 function queueLanPush(){
+    if(window.__lanSkipPush) return;
     if(!isLanMode() || !canEditData()) return;
     if(lanPushTimer) clearTimeout(lanPushTimer);
     lanPushTimer = setTimeout(function(){
         lanPushTimer = null;
+        if(window.__lanSkipPush) return;
         pushLanBundle().catch(function(err){
             console.warn('局域网同步失败:', err);
         });
