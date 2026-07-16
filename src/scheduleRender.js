@@ -8,7 +8,7 @@ function switchView(view){
 // ========== 课表表格渲染（读取当前选中课表的独立课时，冲突单元格红色加粗） ==========
 function renderSchedule(){
     if(!currentTableId){
-        document.querySelector("#scheduleTable tbody").innerHTML = '<tr><td colspan="8" style="color:#ef4444;text-align:center;padding:30px;font-size:16px;">暂无课表，请打开课表模板编辑器同步课表后再进行排课操作</td></tr>';
+        document.querySelector("#scheduleTable tbody").innerHTML = '<tr><td colspan="8" style="color:#ef4444;text-align:center;padding:30px;font-size:16px;">' + (typeof t==='function'?t('msg.emptySchedule'):'暂无课表，请打开课表模板编辑器同步课表后再进行排课操作') + '</td></tr>';
         document.getElementById("conflictTip").innerText = "";
         return;
     }
@@ -27,13 +27,14 @@ function renderSchedule(){
     for(let tIdx=0;tIdx<timeArr.length;tIdx++){
         const timeItem = timeArr[tIdx];
         const timeStr = timeItem.name;
+        const timeDisplay = (typeof displayPeriodLabel==='function'?displayPeriodLabel(timeStr):timeStr);
         const isSplitRow = timeItem.isSplit;
         if(isSplitRow){
             html += `<tr class="split-row">
-                <td colspan="8">${timeStr}</td>
+                <td colspan="8">${timeDisplay}</td>
             </tr>`;
         }else{
-            html+=`<tr><td>${timeStr}</td>`;
+            html+=`<tr><td>${timeDisplay}</td>`;
             for(let w=0;w<weekCount;w++){
                 let key=`${tIdx}-${w}`;
                 let cKey=schedule[key]||"";
@@ -47,10 +48,14 @@ function renderSchedule(){
                     html+=`<td data-key="${key}" onclick="clickCell(this)" style="${style}"></td>`;
                     continue;
                 }
-                // 仅保留三种视图展示逻辑
-                if(currentView==="classView")showText=info.name;
-                else if(currentView==="teacherView")showText=info.teacher;
-                else if(currentView=="roomView")showText=info.room;
+                // 仅保留三种视图展示逻辑（显示名可英文化，存储值不变）
+                if(currentView==="classView"){
+                    showText = (typeof displayCourseName==='function'?displayCourseName(info.name):info.name);
+                }else if(currentView==="teacherView"){
+                    showText = info.teacher;
+                }else if(currentView=="roomView"){
+                    showText = (typeof displayLocaleText==='function'?displayLocaleText(info.room):info.room);
+                }
                 
                 html+=`<td data-key="${key}" onclick="clickCell(this)" style="${style}">${showText}</td>`;
             }
@@ -64,9 +69,9 @@ function renderSchedule(){
 let clearMode = false;
 
 function enterClearCellMode(){
-    if(!currentTableId) return alert("暂无选中课表");
+    if(!currentTableId) return alert(typeof t==="function"?t("msg.noTable"):"暂无选中课表");
     clearMode = true;
-    alert("已进入连续清空模式：点击单元格即可清除内容；点击排课设置中的【课程】下拉框后退出");
+    alert(typeof t==="function"?t("msg.clearMode"):"已进入连续清空模式：点击单元格即可清除内容；点击排课设置中的【课程】下拉框后退出");
 }
 
 function exitClearCellMode(){
@@ -80,9 +85,9 @@ function clearCell(){
 // ========== 单元格操作 ==========
 function clickCell(cell){
     if(typeof canEditData === 'function' && !canEditData()){
-        return alert('当前账号为只读，无法排课。请使用编辑或管理员账号登录。');
+        return alert(typeof t==='function'?t('msg.readonlyNoEdit'):'当前账号为只读，无法排课。请使用编辑或管理员账号登录。');
     }
-    if(!currentTableId) return alert("暂无选中课表，无法排课");
+    if(!currentTableId) return alert(typeof t==="function"?t("msg.noTable"):"暂无选中课表，无法排课");
 
     const key = cell.dataset.key;
 
@@ -113,7 +118,7 @@ function clickCell(cell){
     const endTime = document.getElementById("endTimeSelect").value;
 
     // 基础校验
-    if(!selectVal) return alert("请先选择课程");
+    if(!selectVal) return alert(typeof t==="function"?t("msg.selectCourseFirst"):"请先选择课程");
     if(!validTimeRange(startTime, endTime)) return;
 
     // 直接使用下拉中的时间存储，脱离行文本依赖
