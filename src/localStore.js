@@ -27,6 +27,11 @@ function getAppStorageBackend(){
 }
 
 function getAppStorageBackendLabel(){
+    if(typeof t === 'function'){
+        if(appStorageBackend === 'file') return t('storage.backendFile');
+        if(appStorageBackend === 'indexeddb') return t('storage.backendIdb');
+        return t('storage.backendLs');
+    }
     if(appStorageBackend === 'file') return '本地文件（无 5MB 限制）';
     if(appStorageBackend === 'indexeddb') return 'IndexedDB（大容量）';
     return 'localStorage（约 5MB 上限）';
