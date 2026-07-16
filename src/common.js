@@ -51,12 +51,22 @@ const APP_SUBTITLE_KEY = 'schedule_app_subtitle';
 
 function getAppName(){
     const name = (localStorage.getItem(APP_NAME_KEY) || '').trim();
-    return name || DEFAULT_APP_NAME;
+    if(name) return name;
+    return (typeof t === 'function') ? t('app.title') : DEFAULT_APP_NAME;
 }
 
 function getAppSubtitle(){
-    const sub = (localStorage.getItem(APP_SUBTITLE_KEY) || '').trim();
-    return sub || DEFAULT_APP_SUBTITLE;
+    const raw = localStorage.getItem(APP_SUBTITLE_KEY);
+    if(raw === null){
+        return (typeof t === 'function') ? t('app.subtitle') : DEFAULT_APP_SUBTITLE;
+    }
+    const sub = (raw || '').trim();
+    // 常见中文标语：切英文时自动翻译显示
+    if(typeof t === 'function' && typeof getAppLang === 'function' && getAppLang() === 'en'){
+        if(!sub || sub === DEFAULT_APP_SUBTITLE || sub === '智能课表管理 · 多维度排课') return t('app.subtitle');
+        if(sub === '点击可修改名称标语' || sub === '点击修改程序名称') return t('app.editBrandHint');
+    }
+    return sub;
 }
 
 function sanitizeAppFileName(name){
@@ -114,7 +124,7 @@ function saveAppBranding(){
     const subInput = document.getElementById('appSubtitleInput');
     const name = (nameInput?.value || '').trim();
     const subtitle = (subInput?.value || '').trim();
-    if(!name) return alert('程序名称不能为空');
+    if(!name) return alert(typeof t==='function'?t('msg.brandEmpty'):'程序名称不能为空');
     localStorage.setItem(APP_NAME_KEY, name);
     localStorage.setItem(APP_SUBTITLE_KEY, subtitle || DEFAULT_APP_SUBTITLE);
     applyAppBranding();
@@ -157,7 +167,7 @@ function resolveAppDialog(ok){
 function openAppDialog(options){
     options = options || {};
     const mode = options.mode || 'alert';
-    const title = options.title || (mode === 'confirm' ? '请确认' : mode === 'prompt' ? '请输入' : '提示');
+    const title = options.title || (typeof t==='function' ? (mode === 'confirm' ? t('dialog.confirmTitle') : mode === 'prompt' ? t('dialog.promptTitle') : t('dialog.alertTitle')) : (mode === 'confirm' ? '请确认' : mode === 'prompt' ? '请输入' : '提示'));
     const message = options.message || '';
     const defaultValue = options.defaultValue == null ? '' : String(options.defaultValue);
 
@@ -186,9 +196,10 @@ function openAppDialog(options){
 
         if(titleEl) titleEl.textContent = title;
         msgEl.innerHTML = escAppDialogText(message);
+        msgEl.scrollTop = 0;
         if(promptWrap) promptWrap.style.display = mode === 'prompt' ? 'block' : 'none';
         if(cancelBtn) cancelBtn.style.display = mode === 'alert' ? 'none' : '';
-        if(okBtn) okBtn.textContent = '确定';
+        if(okBtn) okBtn.textContent = (typeof t==='function'?t('common.confirm'):'确定');
         if(input){
             input.value = defaultValue;
             input.onkeydown = function(e){
@@ -196,14 +207,27 @@ function openAppDialog(options){
                 if(e.key === 'Escape') resolveAppDialog(false);
             };
         }
+        mask.onclick = function(e){
+            if(e.target === mask && mode === 'alert') resolveAppDialog(true);
+        };
+        mask.onkeydown = function(e){
+            if(e.key === 'Escape'){
+                resolveAppDialog(mode === 'alert' ? true : false);
+            }
+        };
+        mask.tabIndex = -1;
         mask.style.display = 'flex';
         if(mode === 'prompt') setTimeout(function(){ input?.focus(); input?.select(); }, 30);
-        else setTimeout(function(){ okBtn?.focus(); }, 30);
+        else setTimeout(function(){ okBtn?.focus(); mask.focus(); }, 30);
     });
 }
 
 function showAppAlert(message, title){
-    return openAppDialog({ mode: 'alert', title: title || '提示', message: message });
+    return openAppDialog({
+        mode: 'alert',
+        title: title || (typeof t==='function'?t('common.tip'):'提示'),
+        message: message
+    });
 }
 
 function showAppConfirm(message, title){
@@ -469,27 +493,28 @@ function computeStorageStats(){
 
 function getStorageSpaceHint(stats){
     const large = typeof isLargeCapacityBackend === 'function' && isLargeCapacityBackend();
+    const tt = (typeof t==='function') ? t : null;
     if(large){
-        if(stats.usedBytes < 10 * 1024 * 1024) return { text: '空间充足', level: 'ok' };
-        if(stats.usedBytes < 100 * 1024 * 1024) return { text: '用量正常', level: 'ok' };
-        return { text: '数据量较大，建议定期导出备份', level: 'warn' };
+        if(stats.usedBytes < 10 * 1024 * 1024) return { text: tt?tt('storage.spaceOk'):'空间充足', level: 'ok' };
+        if(stats.usedBytes < 100 * 1024 * 1024) return { text: tt?tt('storage.spaceNormal'):'用量正常', level: 'ok' };
+        return { text: tt?tt('storage.spaceLarge'):'数据量较大，建议定期导出备份', level: 'warn' };
     }
     if(stats.usedPercent >= STORAGE_DANGER_PERCENT){
         return {
-            text: `空间紧张，约还可增 ${formatRemainingTableCount(stats.typicalRemainingTables)} 张`,
+            text: tt?tt('storage.spaceTight',{n:formatRemainingTableCount(stats.typicalRemainingTables)}):(`空间紧张，约还可增 ${formatRemainingTableCount(stats.typicalRemainingTables)} 张`),
             level: 'danger'
         };
     }
     if(stats.usedPercent >= STORAGE_WARN_PERCENT){
         return {
-            text: `空间偏紧，约还可增 ${formatRemainingTableCount(stats.typicalRemainingTables)} 张`,
+            text: tt?tt('storage.spaceWarn',{n:formatRemainingTableCount(stats.typicalRemainingTables)}):(`空间偏紧，约还可增 ${formatRemainingTableCount(stats.typicalRemainingTables)} 张`),
             level: 'warn'
         };
     }
     if(stats.usedPercent >= 50){
-        return { text: '空间适中', level: 'ok' };
+        return { text: tt?tt('storage.spaceMid'):'空间适中', level: 'ok' };
     }
-    return { text: '空间充足', level: 'ok' };
+    return { text: tt?tt('storage.spaceOk'):'空间充足', level: 'ok' };
 }
 
 async function refreshStorageQuotaEstimate(){
@@ -510,23 +535,23 @@ function renderStorageStatus(){
     fill.className = 'tm-storage-fill' + (level === 'ok' ? '' : ` ${level}`);
     text.className = 'tm-storage-text' + (level === 'ok' ? '' : ` ${level}`);
 
-    let msg = `本地存储 ${formatStorageSize(stats.usedBytes)} / ${formatStorageSize(stats.quotaBytes)}（${stats.usedPercent.toFixed(0)}%）`;
+    let msg = (typeof t==='function'?t('storage.local'):'本地存储') + ` ${formatStorageSize(stats.usedBytes)} / ${formatStorageSize(stats.quotaBytes)}（${stats.usedPercent.toFixed(0)}%）`;
     if(typeof getAppStorageBackendLabel === 'function'){
         msg += ` · ${getAppStorageBackendLabel()}`;
     }
-    msg += ` · 课表 ${stats.tableCount} 张 · ${spaceHint.text}`;
+    msg += ` · ` + (typeof t==='function'?t('storage.tables',{n:stats.tableCount}):(`课表 ${stats.tableCount} 张`)) + ` · ${spaceHint.text}`;
 
     const daysSinceBackup = getDaysSinceBackup();
     if(daysSinceBackup === null){
-        if(stats.tableCount > 0) msg += ' · 建议导出备份';
+        if(stats.tableCount > 0) msg += ' · ' + (typeof t==='function'?t('storage.suggestBackup'):'建议导出备份');
     }else if(daysSinceBackup >= BACKUP_REMIND_DAYS){
-        msg += ` · 已 ${daysSinceBackup} 天未备份`;
+        msg += ' · ' + (typeof t==='function'?t('storage.daysNoBackup',{n:daysSinceBackup}):(`已 ${daysSinceBackup} 天未备份`));
     }
 
     if(level === 'danger'){
-        msg += ' · 请尽快导出备份';
+        msg += ' · ' + (typeof t==='function'?t('storage.backupSoon'):'请尽快导出备份');
     }else if(level === 'warn'){
-        msg += ' · 建议备份';
+        msg += ' · ' + (typeof t==='function'?t('storage.suggestBackupShort'):'建议备份');
     }
 
     text.textContent = msg;
@@ -581,8 +606,8 @@ function saveSnapshot() {
 }
 
 function undoStep() {
-    if(!currentTableId) return alert("暂无选中课表，请先新建或选择课表");
-    if (historyIndex <= 0) return alert("已经是最早一步，无法撤销");
+    if(!currentTableId) return alert(typeof t==="function"?t("msg.noTable"):"暂无选中课表，请先新建或选择课表");
+    if (historyIndex <= 0) return alert(typeof t==="function"?t("msg.undoEnd"):"已经是最早一步，无法撤销");
     historyIndex--;
     const data = historyStack[historyIndex];
     const tableItem = tableList.find(t=>t.id === currentTableId);
@@ -597,8 +622,8 @@ function undoStep() {
 }
 
 function redoStep() {
-    if(!currentTableId) return alert("暂无选中课表，请先新建或选择课表");
-    if (historyIndex >= historyStack.length - 1) return alert("已经是最新一步，无法重做");
+    if(!currentTableId) return alert(typeof t==="function"?t("msg.noTable"):"暂无选中课表，请先新建或选择课表");
+    if (historyIndex >= historyStack.length - 1) return alert(typeof t==="function"?t("msg.redoEnd"):"已经是最新一步，无法重做");
     historyIndex++;
     const data = historyStack[historyIndex];
     const tableItem = tableList.find(t=>t.id === currentTableId);
@@ -693,7 +718,8 @@ function delay(ms){
 function buildSaveFilters(extensions){
     if(!extensions || !extensions.length) return undefined;
     const extList = extensions.map(e => String(e).replace(/^\./, ''));
-    return [{ name: '文件', extensions: extList }];
+    const label = (typeof t === 'function') ? t('export.fileFilter') : '文件';
+    return [{ name: label, extensions: extList }];
 }
 
 function parseTauriSavePath(result){
@@ -787,7 +813,12 @@ async function browserPickSaveBlob(blob, defaultFilename, extensions){
     try{
         const handle = await window.showSaveFilePicker({
             suggestedName: sanitizeDefaultFilename(defaultFilename),
-            types: [{ description: ext.toUpperCase() + ' 文件', accept: { [mime]: ['.' + ext], 'application/octet-stream': ['.' + ext] } }]
+            types: [{
+                description: (typeof t === 'function')
+                    ? t('export.fileTypeDesc', { ext: ext.toUpperCase() })
+                    : (ext.toUpperCase() + ' 文件'),
+                accept: { [mime]: ['.' + ext], 'application/octet-stream': ['.' + ext] }
+            }]
         });
         const writable = await handle.createWritable();
         await writable.write(blob);
@@ -895,7 +926,7 @@ async function saveFileWindowsDesktop(text, safeFilename, blob, extensions){
     // 方案 C：写入失败时，用用户选择的文件名保存到默认下载目录（保证能导出）
     const chosenName = sanitizeDefaultFilename(extractBasename(path) || safeFilename);
     browserDownloadFallback(blob, ensureFileExtension(chosenName, extensions).split(/[/\\]/).pop());
-    alert('无法保存到所选文件夹，文件已导出到默认下载目录：\n' + chosenName);
+    alert(typeof t==='function'?t('export.saveFallbackDownload',{name:chosenName}):('无法保存到所选文件夹，文件已导出到默认下载目录：\n' + chosenName));
     return true;
 }
 
@@ -924,7 +955,7 @@ async function saveFileWithPicker(content, defaultFilename, options){
         if(path){
             const ok = await tauriWriteContent(path, text);
             if(ok) return true;
-            alert('保存失败，请检查应用是否有写入文件的权限');
+            alert(typeof t==='function'?t('export.savePermissionFail'):'保存失败，请检查应用是否有写入文件的权限');
             return null;
         }
     }
@@ -934,11 +965,11 @@ async function saveFileWithPicker(content, defaultFilename, options){
     if(fsaResult === false) return false;
 
     if(isDesktopApp()){
-        alert('无法打开保存对话框，请更新 PakePlus 后重新打包，或开启 Debug 模式查看控制台报错');
+        alert(typeof t==='function'?t('export.saveDialogFail'):'无法打开保存对话框，请更新 PakePlus 后重新打包，或开启 Debug 模式查看控制台报错');
         return null;
     }
     if(typeof window.showSaveFilePicker !== 'function'){
-        alert('当前浏览器不支持选择保存位置，文件将保存到默认下载文件夹');
+        alert(typeof t==='function'?t('export.browserNoPicker'):'当前浏览器不支持选择保存位置，文件将保存到默认下载文件夹');
     }
     browserDownloadFallback(blob, safeFilename);
     return true;
@@ -983,7 +1014,7 @@ async function saveBlobWithPicker(blob, defaultFilename, extensions){
             if(ok) return true;
             const chosenName = sanitizeDefaultFilename(extractBasename(path) || safeFilename);
             browserDownloadFallback(blob, ensureFileExtension(chosenName, extensions).split(/[/\\]/).pop());
-            alert('图片已保存到下载文件夹（所选位置写入失败）：\n' + chosenName);
+            alert(typeof t==='function'?t('export.imageFallbackDownload',{name:chosenName}):('图片已保存到下载文件夹（所选位置写入失败）：\n' + chosenName));
             return true;
         }
     }
@@ -996,7 +1027,7 @@ async function saveBlobWithPicker(blob, defaultFilename, extensions){
 /** 将 HTML 表格渲染为 PNG 图片并导出 */
 async function exportHtmlDocumentAsPng(htmlDoc, defaultFilename){
     if(typeof html2canvas === 'undefined'){
-        return alert('图片导出模块未加载，请检查网络连接后重试');
+        return alert(typeof t==='function'?t('export.html2canvasMissing'):'图片导出模块未加载，请检查网络连接后重试');
     }
     const frame = document.createElement('iframe');
     frame.setAttribute('aria-hidden', 'true');
@@ -1019,13 +1050,14 @@ async function exportHtmlDocumentAsPng(htmlDoc, defaultFilename){
         const blob = await new Promise(function(resolve){
             canvas.toBlob(resolve, 'image/png', 0.95);
         });
-        if(!blob) return alert('图片生成失败，请重试');
+        if(!blob) return alert(typeof t==='function'?t('export.imageGenFail'):'图片生成失败，请重试');
         const saved = await saveBlobWithPicker(blob, defaultFilename, ['png']);
         if(saved && typeof markBackupExported === 'function') markBackupExported();
         return saved;
     }catch(err){
         console.error('exportHtmlDocumentAsPng failed:', err);
-        alert('图片导出失败：' + (err.message || '未知错误'));
+        const errMsg = err.message || (typeof t==='function'?t('export.unknownError'):'未知错误');
+        alert(typeof t==='function'?t('export.imageExportFail',{msg:errMsg}):('图片导出失败：' + errMsg));
         return false;
     }finally{
         document.body.removeChild(frame);
@@ -1325,7 +1357,10 @@ function checkAllConflict() {
             const courseInfo = getCourseInfo(courseKey);
             if (!courseInfo) return;
 
-            const weekName = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][weekIdx];
+            const weekLabels = (typeof i18nWeekLabels === 'function') ? i18nWeekLabels() : ['周一','周二','周三','周四','周五','周六','周日'];
+            const weekName = weekLabels[weekIdx];
+            const conflictTypeTeacher = (typeof t==='function'?t('conflict.typeTeacher'):'教师时间冲突');
+            const conflictTypeRoom = (typeof t==='function'?t('conflict.typeRoom'):'教室场地冲突');
             const teacherName = courseInfo.teacher;
             const roomName = courseInfo.room;
             const courseShowText = `${courseInfo.name}（${teacherName}，${roomName}）`;
@@ -1341,7 +1376,7 @@ function checkAllConflict() {
                 if (item.teacher === teacherName && isTimeOverlap(startTime, endTime, item.start, item.end)) {
                     hasConflict = true;
                     conflictDetails.push({
-                        type: '教师时间冲突',
+                        type: conflictTypeTeacher,
                         week: weekName,
                         targetName: teacherName,
                         nowClass: bindClassName,
@@ -1359,7 +1394,7 @@ function checkAllConflict() {
                 if (item.room === roomName && isTimeOverlap(startTime, endTime, item.start, item.end)) {
                     hasConflict = true;
                     conflictDetails.push({
-                        type: '教室场地冲突',
+                        type: conflictTypeRoom,
                         week: weekName,
                         targetName: roomName,
                         nowClass: bindClassName,
@@ -1406,24 +1441,54 @@ function checkAllConflict() {
     const conflictTipDom = document.getElementById('conflictTip');
     if (totalGlobal === 0) {
         conflictTipDom.style.color = '#28a745';
-        conflictTipDom.innerText = '✅ 全局检测完成：所有教师、教室时段无冲突';
+        conflictTipDom.innerText = (typeof t==='function'?t('conflict.none'):'✅ 全局检测完成：所有教师、教室时段无冲突');
     } else {
         conflictTipDom.style.color = '#dc3545';
-        conflictTipDom.innerText = `❌ 全局共${totalGlobal}处冲突，当前课表检测到${currentCount}处冲突，冲突单元格已标红，可点击【查看冲突详情】按钮查看`;
+        conflictTipDom.innerText = (typeof t==='function'
+            ? t('conflict.found',{total:totalGlobal,current:currentCount})
+            : `❌ 全局共${totalGlobal}处冲突，当前课表检测到${currentCount}处冲突，冲突单元格已标红，可点击【查看冲突详情】按钮查看`);
     }
 }
 
 // 查看冲突详情函数
-function showConflictDetail() {
+async function showConflictDetail() {
     if (!window.globalConflictList || window.globalConflictList.length === 0) {
-        alert("暂无排课冲突，请先执行全局冲突检测");
+        if(typeof showAppAlert === 'function'){
+            await showAppAlert(typeof t==='function'?t('conflict.noConflict'):'暂无排课冲突，请先执行全局冲突检测');
+        }else{
+            alert(typeof t==='function'?t('conflict.noConflict'):'暂无排课冲突，请先执行全局冲突检测');
+        }
         return;
     }
-    let msg = `=====全局排课冲突详情（共${window.globalConflictList.length}处）=====\n`;
+    let msg = (typeof t==='function'
+        ? t('conflict.detailHeader',{n:window.globalConflictList.length})
+        : `=====全局排课冲突详情（共${window.globalConflictList.length}处）=====\n`);
     window.globalConflictList.forEach((item, idx) => {
-        msg += `【${idx+1}】${item.type}\n星期：${item.week}  时段：${item.time}\n冲突资源：${item.targetName}\n待排【${item.nowClass}】：${item.nowCourse}\n已占用【${item.existClass}】：${item.existCourse}\n\n`;
+        const nowClass = (typeof displayLocaleText==='function'?displayLocaleText(item.nowClass):item.nowClass);
+        const existClass = (typeof displayLocaleText==='function'?displayLocaleText(item.existClass):item.existClass);
+        const nowCourse = (typeof displayConflictCourseText==='function'?displayConflictCourseText(item.nowCourse):item.nowCourse);
+        const existCourse = (typeof displayConflictCourseText==='function'?displayConflictCourseText(item.existCourse):item.existCourse);
+        if(typeof t==='function'){
+            msg += t('conflict.detailLine',{
+                idx: idx + 1,
+                type: item.type,
+                week: item.week,
+                time: item.time,
+                target: item.targetName,
+                nowClass: nowClass,
+                nowCourse: nowCourse,
+                existClass: existClass,
+                existCourse: existCourse
+            }) + '\n';
+        }else{
+            msg += `【${idx+1}】${item.type}\n星期：${item.week}  时段：${item.time}\n冲突资源：${item.targetName}\n待排【${nowClass}】：${nowCourse}\n已占用【${existClass}】：${existCourse}\n\n`;
+        }
     });
-    alert(msg);
+    if(typeof showAppAlert === 'function'){
+        await showAppAlert(msg, typeof t==='function'?t('schedule.conflictDetail'):'查看冲突详情');
+    }else{
+        alert(msg);
+    }
 }
 
 // ========== 关闭页面前：导出课表与备份提醒 ==========
