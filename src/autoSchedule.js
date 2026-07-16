@@ -1,15 +1,31 @@
 // ========== 自动排课与限制条件 ==========
 
-const AUTO_CONSTRAINT_TYPES = {
-    teacher_unavailable: '教师不可上课',
-    teacher_available_only: '教师仅可上课时段',
-    room_unavailable: '教室不可使用',
-    teacher_max_daily: '教师每日最多节数',
-    slot_blocked: '课时行全员不可用',
-    week_blocked: '星期不可用'
-};
+function getAutoConstraintTypes(){
+    if(typeof t === 'function'){
+        return {
+            teacher_unavailable: t('auto.teacherUnavailable'),
+            teacher_available_only: t('auto.teacherAvailableOnly'),
+            room_unavailable: t('auto.roomUnavailable'),
+            teacher_max_daily: t('auto.teacherMaxDaily'),
+            slot_blocked: t('auto.slotBlocked'),
+            week_blocked: t('auto.weekBlocked')
+        };
+    }
+    return {
+        teacher_unavailable: '教师不可上课',
+        teacher_available_only: '教师仅可上课时段',
+        room_unavailable: '教室不可使用',
+        teacher_max_daily: '教师每日最多节数',
+        slot_blocked: '课时行全员不可用',
+        week_blocked: '星期不可用'
+    };
+}
+const AUTO_CONSTRAINT_TYPES = getAutoConstraintTypes();
 
-const WEEK_LABELS = ['周一','周二','周三','周四','周五','周六','周日'];
+function getWeekLabels(){
+    return (typeof i18nWeekLabels === 'function') ? i18nWeekLabels() : ['周一','周二','周三','周四','周五','周六','周日'];
+}
+const WEEK_LABELS = getWeekLabels();
 
 function ensureAutoConfig(table){
     if(!table.autoScheduleConfig){
@@ -380,12 +396,14 @@ function getSelectedConstraintSlots(){
 function renderConstraintSlotCheckboxes(){
     const group = document.getElementById('constraintSlotsGroup');
     if(!group) return;
-    const allHtml = '<label class="constraint-chip active" id="constraintSlotAllLabel"><input type="checkbox" id="constraintSlotAll" checked onchange="toggleConstraintSlotAll(this)"> 全部</label>';
+    const allLabel = (typeof t==='function'?t('common.all'):'全部');
+    const allHtml = '<label class="constraint-chip active" id="constraintSlotAllLabel"><input type="checkbox" id="constraintSlotAll" checked onchange="toggleConstraintSlotAll(this)"> <span>'+allLabel+'</span></label>';
     const timeArr = getTimeData();
     let slotsHtml = '';
     timeArr.forEach((item, idx)=>{
         if(item.isSplit) return;
-        slotsHtml += `<label class="constraint-chip"><input type="checkbox" class="constraint-slot-cb" value="${idx}" onchange="onConstraintSlotPick()"> ${escCourseHtml(item.name)}</label>`;
+        const label = (typeof displayPeriodLabel==='function'?displayPeriodLabel(item.name):item.name);
+        slotsHtml += `<label class="constraint-chip"><input type="checkbox" class="constraint-slot-cb" value="${idx}" onchange="onConstraintSlotPick()"> ${escCourseHtml(label)}</label>`;
     });
     group.innerHTML = allHtml + slotsHtml;
     syncConstraintChipStyles();
@@ -393,7 +411,7 @@ function renderConstraintSlotCheckboxes(){
 
 function addAutoConstraint(){
     const table = getAutoConfigTable();
-    if(!table) return alert('请先选中课表');
+    if(!table) return alert(typeof t==='function'?t('auto.selectTable'):'请先选中课表');
 
     const type = document.getElementById('constraintType').value;
     const teacher = document.getElementById('constraintTeacher')?.value || '';
@@ -405,9 +423,9 @@ function addAutoConstraint(){
     const maxCount = parseInt(document.getElementById('constraintMaxCount')?.value, 10) || 2;
 
     if(['teacher_unavailable','teacher_available_only','teacher_max_daily','week_blocked'].includes(type) && !teacher){
-        return alert('请选择教师');
+        return alert(typeof t==='function'?t('course.selectTeacher'):'请选择教师');
     }
-    if(type === 'room_unavailable' && !room) return alert('请选择教室');
+    if(type === 'room_unavailable' && !room) return alert(typeof t==='function'?t('course.selectRoom'):'请选择教室');
 
     const rule = {
         id: 'rule_' + Date.now(),
@@ -426,23 +444,26 @@ function addAutoConstraint(){
     cfg.constraints.push(rule);
     saveTableList();
     renderConstraintList();
-    alert('✅ 限制条件已添加');
+    alert(typeof t==='function'?t('auto.constraintAdded'):'✅ 限制条件已添加');
 }
 
 function buildConstraintLabel(type, o){
-    const typeName = AUTO_CONSTRAINT_TYPES[type] || type;
+    const typeName = getAutoConstraintTypes()[type] || type;
     let parts = [typeName];
-    if(o.teacher) parts.push(`教师:${o.teacher}`);
-    if(o.room) parts.push(`教室:${o.room}`);
-    if(o.weeks?.length) parts.push(o.weeks.map(w => WEEK_LABELS[w]).join('、'));
-    else parts.push('全周');
+    if(o.teacher) parts.push(typeof t==='function'?t('auto.labelTeacher',{name:o.teacher}):(`教师:${o.teacher}`));
+    if(o.room) parts.push(typeof t==='function'?t('auto.labelRoom',{name:o.room}):(`教室:${o.room}`));
+    if(o.weeks?.length) parts.push(o.weeks.map(w => getWeekLabels()[w]).join(typeof getAppLang==='function'&&getAppLang()==='en'?', ':'、'));
+    else parts.push(typeof t==='function'?t('auto.labelAllWeek'):'全周');
     if(o.timeSlots?.length){
         const table = getAutoConfigTable();
-        const names = o.timeSlots.map(i => table?.timeList[i]?.name || `第${i+1}节`).join('、');
+        const names = o.timeSlots.map(i => {
+            const raw = table?.timeList[i]?.name || (`第${i+1}节`);
+            return (typeof displayPeriodLabel==='function'?displayPeriodLabel(raw):raw);
+        }).join(typeof getAppLang==='function'&&getAppLang()==='en'?', ':'、');
         parts.push(names);
     }
     if(o.startTime && o.endTime) parts.push(`${o.startTime}-${o.endTime}`);
-    if(type === 'teacher_max_daily') parts.push(`最多${o.maxCount}节/天`);
+    if(type === 'teacher_max_daily') parts.push(typeof t==='function'?t('auto.labelMaxDaily',{n:o.maxCount}):(`最多${o.maxCount}节/天`));
     return parts.join(' · ');
 }
 
@@ -461,13 +482,13 @@ function renderConstraintList(){
     const table = getAutoConfigTable();
     const rules = table ? ensureAutoConfig(table).constraints : [];
     if(rules.length === 0){
-        tbody.innerHTML = '<tr><td colspan="3" class="search-empty">暂无限定条件，可在下方添加</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="search-empty">'+(typeof t==='function'?t('auto.noConstraints'):'暂无限定条件，可在下方添加')+'</td></tr>';
         return;
     }
     tbody.innerHTML = rules.map(r => `<tr>
         <td>${escCourseHtml(r.label || r.type)}</td>
-        <td>${escCourseHtml(AUTO_CONSTRAINT_TYPES[r.type] || r.type)}</td>
-        <td><button class="del" onclick="delAutoConstraint('${r.id}')">删除</button></td>
+        <td>${escCourseHtml(getAutoConstraintTypes()[r.type] || r.type)}</td>
+        <td><button class="del" onclick="delAutoConstraint('${r.id}')">${typeof t==='function'?t('common.delete'):'删除'}</button></td>
     </tr>`).join('');
 }
 
@@ -479,15 +500,15 @@ function renderAutoSchedulePanel(){
     if(!teacherSel) return;
 
     const teachers = getTeacherData();
-    let tHtml = '<option value="">选择教师</option>';
-    teachers.forEach(t => { tHtml += `<option value="${escCourseHtml(t)}">${escCourseHtml(t)}</option>`; });
+    let tHtml = '<option value="">'+(typeof t==='function'?t('course.selectTeacher'):'选择教师')+'</option>';
+    teachers.forEach(name => { tHtml += `<option value="${escCourseHtml(name)}">${escCourseHtml(name)}</option>`; });
     teacherSel.innerHTML = tHtml;
     if(cTeacherSel) cTeacherSel.innerHTML = tHtml;
 
     const rooms = getRoomData();
     if(cRoomSel){
-        let rHtml = '<option value="">选择教室</option>';
-        rooms.forEach(r => { rHtml += `<option value="${escCourseHtml(r)}">${escCourseHtml(r)}</option>`; });
+        let rHtml = '<option value="">'+(typeof t==='function'?t('course.selectRoom'):'选择教室')+'</option>';
+        rooms.forEach(name => { rHtml += `<option value="${escCourseHtml(name)}">${escCourseHtml(name)}</option>`; });
         cRoomSel.innerHTML = rHtml;
     }
 
@@ -516,11 +537,13 @@ function refreshAutoCourseSelect(){
     if(!courseSel) return;
     const table = getAutoConfigTable();
     const bindClass = table?.bindClass || '';
-    let html = '<option value="">自动匹配课程</option>';
+    let html = '<option value="">'+(typeof t==='function'?t('auto.matchCourse'):'自动匹配课程')+'</option>';
     if(teacher){
         getTeacherCoursesForTable(teacher, bindClass).forEach(c => {
             const key = `${c.name}|${c.teacher}|${c.room}|${c.cls}`;
-            html += `<option value="${escCourseHtml(key)}">${escCourseHtml(c.name)} · ${escCourseHtml(c.room)}</option>`;
+            const nameLabel = (typeof displayCourseName==='function'?displayCourseName(c.name):c.name);
+            const roomLabel = (typeof displayLocaleText==='function'?displayLocaleText(c.room):c.room);
+            html += `<option value="${escCourseHtml(key)}">${escCourseHtml(nameLabel)} · ${escCourseHtml(roomLabel)}</option>`;
         });
     }
     courseSel.innerHTML = html;
@@ -530,8 +553,13 @@ function initAutoConstraintTimeSelects(){
     const startSel = document.getElementById('constraintStartTime');
     const endSel = document.getElementById('constraintEndTime');
     if(!startSel || !endSel || typeof TIME_OPTIONS === 'undefined') return;
-    let opt = '<option value="">不限</option>';
-    TIME_OPTIONS.forEach(t => { opt += `<option value="${t}">${t}</option>`; });
+    const prevStart = startSel.value;
+    const prevEnd = endSel.value;
+    const anyLabel = (typeof t==='function'?t('auto.unlimited'):'不限');
+    let opt = '<option value="">'+anyLabel+'</option>';
+    TIME_OPTIONS.forEach(tm => { opt += `<option value="${tm}">${tm}</option>`; });
     startSel.innerHTML = opt;
     endSel.innerHTML = opt;
+    if(prevStart) startSel.value = prevStart;
+    if(prevEnd) endSel.value = prevEnd;
 }
