@@ -1,6 +1,9 @@
 // ========== 教师 / 教室 占用与空余查询 ==========
 
-const OCC_WEEK_LABELS = ['周一','周二','周三','周四','周五','周六','周日'];
+function getOccWeekLabels(){
+    return (typeof i18nWeekLabels === 'function') ? i18nWeekLabels() : ['周一','周二','周三','周四','周五','周六','周日'];
+}
+const OCC_WEEK_LABELS = getOccWeekLabels();
 let occQueryType = 'teacher';
 let occTeacherAll = [];
 let occRoomAll = [];
@@ -106,7 +109,7 @@ function renderOccupancyQuery(){
     const scope = getOccScope();
 
     if(!target){
-        gridWrap.innerHTML = '<div class="occ-empty">请选择' + (type === 'teacher' ? '教师' : '教室') + '查看占用情况</div>';
+        gridWrap.innerHTML = '<div class="occ-empty">' + (typeof t==='function'?t('msg.selectTeacherOrRoom'):('请选择'+(type==='teacher'?'教师':'教室')+'查看占用情况')) + '</div>';
         if(summaryEl){
             summaryEl.innerHTML = '';
             summaryEl.style.display = 'none';
@@ -120,23 +123,27 @@ function renderOccupancyQuery(){
 
     let busyCount = 0;
     let freeCount = 0;
-    let html = '<table class="occ-grid"><thead><tr><th>时段</th>';
-    OCC_WEEK_LABELS.forEach(w => { html += `<th>${w}</th>`; });
+    let html = '<table class="occ-grid"><thead><tr><th>'+(typeof t==='function'?t('occ.timeCol'):'时段')+'</th>';
+    getOccWeekLabels().forEach(w => { html += `<th>${w}</th>`; });
     html += '</tr></thead><tbody>';
 
     slots.forEach(slot=>{
-        html += `<tr><td class="occ-time-col">${escCourseHtml(slot.label)}</td>`;
+        const slotLabel = (typeof displayPeriodLabel==='function'?displayPeriodLabel(slot.label):slot.label);
+        html += `<tr><td class="occ-time-col">${escCourseHtml(slotLabel)}</td>`;
         for(let w = 0; w < weekCount; w++){
             const hits = findAssignmentsInSlot(filtered, target, type, w, slot);
             if(hits.length > 0){
                 busyCount++;
-                const detail = hits.map(h =>
-                    `<div class="occ-busy-item"><strong>${escCourseHtml(h.courseName)}</strong><span>${escCourseHtml(h.bindClass || h.cls)}</span><span class="occ-meta">${escCourseHtml(h.start)}-${escCourseHtml(h.end)} · ${escCourseHtml(h.tableName)}</span></div>`
-                ).join('');
+                const detail = hits.map(h => {
+                    const courseLabel = (typeof displayCourseName==='function'?displayCourseName(h.courseName):h.courseName);
+                    const classLabel = (typeof displayLocaleText==='function'?displayLocaleText(h.bindClass || h.cls):(h.bindClass || h.cls));
+                    const tableLabel = (typeof displayLocaleText==='function'?displayLocaleText(h.tableName):h.tableName);
+                    return `<div class="occ-busy-item"><strong>${escCourseHtml(courseLabel)}</strong><span>${escCourseHtml(classLabel)}</span><span class="occ-meta">${escCourseHtml(h.start)}-${escCourseHtml(h.end)} · ${escCourseHtml(tableLabel)}</span></div>`;
+                }).join('');
                 html += `<td class="occ-cell occ-busy">${detail}</td>`;
             }else{
                 freeCount++;
-                html += `<td class="occ-cell occ-free"><span class="occ-free-tag">空闲</span><span class="occ-meta">${escCourseHtml(slot.start)}-${escCourseHtml(slot.end)}</span></td>`;
+                html += `<td class="occ-cell occ-free"><span class="occ-free-tag">${typeof t==='function'?t('msg.free'):'空闲'}</span><span class="occ-meta">${escCourseHtml(slot.start)}-${escCourseHtml(slot.end)}</span></td>`;
             }
         }
         html += '</tr>';
@@ -146,15 +153,24 @@ function renderOccupancyQuery(){
     gridWrap.innerHTML = html;
 
     const tableSet = new Set(filtered.map(f => f.tableName));
-    const targetLabel = type === 'teacher' ? `教师【${target}】` : `教室【${target}】`;
-    const scopeLabel = scope === 'current' ? '当前课表' : '全部课表';
+    const targetLabel = type === 'teacher'
+        ? (typeof t==='function'?t('msg.teacherLabel',{name:target}):`教师【${target}】`)
+        : (typeof t==='function'?t('msg.roomLabel',{name:target}):`教室【${target}】`);
+    const scopeLabel = scope === 'current'
+        ? (typeof t==='function'?t('occ.scopeCurrent'):'当前课表')
+        : (typeof t==='function'?t('occ.scopeAll'):'全部课表');
+    const busyLabel = (typeof t==='function'?t('msg.occupied',{n:busyCount}):`占用 ${busyCount} 格`);
+    const freeLabel = (typeof t==='function'?t('msg.freeSlots',{n:freeCount}):`空余 ${freeCount} 格`);
+    const entriesLabel = (typeof t==='function'
+        ? t('occ.summaryEntries',{entries:filtered.length,tables:tableSet.size})
+        : `共 ${filtered.length} 条排课 · ${tableSet.size} 张课表`);
     if(summaryEl){
         summaryEl.innerHTML = `
             <span class="occ-stat"><strong>${targetLabel}</strong></span>
             <span class="occ-stat">${scopeLabel}</span>
-            <span class="occ-stat occ-stat-busy">占用 ${busyCount} 格</span>
-            <span class="occ-stat occ-stat-free">空余 ${freeCount} 格</span>
-            <span class="occ-stat">共 ${filtered.length} 条排课 · ${tableSet.size} 张课表</span>
+            <span class="occ-stat occ-stat-busy">${busyLabel}</span>
+            <span class="occ-stat occ-stat-free">${freeLabel}</span>
+            <span class="occ-stat">${entriesLabel}</span>
         `;
         summaryEl.style.display = '';
     }
@@ -178,7 +194,7 @@ function filterOccTeacherOptions(keepValue){
     const prev = keepValue ? sel?.value : '';
     if(!sel) return;
     const list = kw ? occTeacherAll.filter(t => t.toLowerCase().includes(kw)) : occTeacherAll;
-    let html = '<option value="">选择教师</option>';
+    let html = '<option value="">'+(typeof t==='function'?t('course.selectTeacher'):'选择教师')+'</option>';
     list.forEach(t => { html += `<option value="${escCourseHtml(t)}">${escCourseHtml(t)}</option>`; });
     sel.innerHTML = html;
     if(prev && list.includes(prev)) sel.value = prev;
@@ -190,7 +206,7 @@ function filterOccRoomOptions(keepValue){
     const prev = keepValue ? sel?.value : '';
     if(!sel) return;
     const list = kw ? occRoomAll.filter(r => r.toLowerCase().includes(kw)) : occRoomAll;
-    let html = '<option value="">选择教室</option>';
+    let html = '<option value="">'+(typeof t==='function'?t('course.selectRoom'):'选择教室')+'</option>';
     list.forEach(r => { html += `<option value="${escCourseHtml(r)}">${escCourseHtml(r)}</option>`; });
     sel.innerHTML = html;
     if(prev && list.includes(prev)) sel.value = prev;
@@ -220,13 +236,13 @@ function renderOccupancyFreeList(){
         for(let w = 0; w < weekCount; w++){
             const hits = findAssignmentsInSlot(assignments, target, type, w, slot);
             if(hits.length === 0){
-                freeItems.push(`${OCC_WEEK_LABELS[w]} ${slot.start}-${slot.end}`);
+                freeItems.push(`${getOccWeekLabels()[w]} ${slot.start}-${slot.end}`);
             }
         }
     });
 
     if(freeItems.length === 0){
-        listEl.innerHTML = '<div class="occ-empty">当前范围内无空余时段</div>';
+        listEl.innerHTML = '<div class="occ-empty">'+(typeof t==='function'?t('msg.noFreeSlots'):'当前范围内无空余时段')+'</div>';
         return;
     }
     listEl.innerHTML = '<div class="occ-free-chips">' + freeItems.map(t =>
