@@ -253,8 +253,14 @@ function initLocalStorage(){
         }
     });
     
+    // 保留当前选中的课表（局域网轮询会反复 init，不能每次都跳回第一张）
     if(tableList.length > 0){
-        currentTableId = tableList[0].id;
+        const stillExists = currentTableId && tableList.some(function(t){ return t.id === currentTableId; });
+        if(!stillExists){
+            currentTableId = tableList[0].id;
+        }
+    }else{
+        currentTableId = '';
     }
     saveSnapshot();
     touchStorageRefresh();
