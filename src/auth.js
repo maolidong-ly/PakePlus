@@ -25,6 +25,21 @@ function getAuthUsers(){
 }
 
 function saveAuthUsers(users){
+    if(!Array.isArray(users)) return;
+    // 防止误写成空列表导致管理员“消失”
+    if(users.length === 0){
+        const existing = (() => {
+            try{ return JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]'); }catch(e){ return []; }
+        })();
+        if(Array.isArray(existing) && existing.length > 0){
+            console.warn('拒绝清空本地用户列表');
+            return;
+        }
+    }
+    const hasAdmin = users.some(function(u){ return normalizeUserRole(u && u.role) === 'admin'; });
+    if(users.length > 0 && !hasAdmin){
+        users[0].role = 'admin';
+    }
     localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
 }
 
@@ -122,7 +137,7 @@ function submitLoginForm(){
                 if(passwordInput) passwordInput.value = '';
             })
             .catch(function(err){
-                alert('局域网登录失败：' + (err.message || err));
+                alert('局域网登录失败：' + (err.message || err) + '\n\n若主机刚重启或用户列表异常，可先在「局域网」里断开，再用本机账号登录。');
             });
         return;
     }
@@ -216,14 +231,15 @@ function renderUserManageList(){
             const users = data.users || [];
             listEl.innerHTML = users.map(function(u){
                 const isSelf = current && current.username === u.username;
-                const roleSel = `<select onchange="changeLanUserRole(${JSON.stringify(u.username)}, this.value)">
+                const uname = escapeHtmlAttr(u.username);
+                const roleSel = `<select data-username="${uname}" onchange="changeLanUserRole(this.getAttribute('data-username'), this.value)">
                     <option value="admin" ${u.role==='admin'?'selected':''}>管理员</option>
                     <option value="editor" ${u.role==='editor'?'selected':''}>编辑</option>
                     <option value="viewer" ${u.role==='viewer'?'selected':''}>只读</option>
                 </select>`;
                 const delBtn = isSelf
                     ? '<span class="user-manage-self">当前账号</span>'
-                    : `<button type="button" class="sab-btn user-manage-del" onclick="deleteAuthUser(${JSON.stringify(u.username)})">删除</button>`;
+                    : `<button type="button" class="sab-btn user-manage-del" data-username="${uname}" onclick="deleteAuthUser(this.getAttribute('data-username'))">删除</button>`;
                 return `<div class="user-manage-row">
                     <span class="user-manage-name">${escapeHtmlText(u.username)}</span>
                     ${roleSel}
@@ -244,8 +260,9 @@ function renderUserManageList(){
     const canManage = typeof canManageUsers === 'function' ? canManageUsers() : true;
     listEl.innerHTML = users.map(function(u){
         const isSelf = current && current.username === u.username;
+        const uname = escapeHtmlAttr(u.username);
         const roleSel = canManage
-            ? `<select onchange="changeLocalUserRole(${JSON.stringify(u.username)}, this.value)">
+            ? `<select data-username="${uname}" onchange="changeLocalUserRole(this.getAttribute('data-username'), this.value)">
                 <option value="admin" ${u.role==='admin'?'selected':''}>管理员</option>
                 <option value="editor" ${u.role==='editor'?'selected':''}>编辑</option>
                 <option value="viewer" ${u.role==='viewer'?'selected':''}>只读</option>
@@ -254,7 +271,7 @@ function renderUserManageList(){
         const delBtn = isSelf
             ? '<span class="user-manage-self">当前账号</span>'
             : (canManage
-                ? `<button type="button" class="sab-btn user-manage-del" onclick="deleteAuthUser(${JSON.stringify(u.username)})">删除</button>`
+                ? `<button type="button" class="sab-btn user-manage-del" data-username="${uname}" onclick="deleteAuthUser(this.getAttribute('data-username'))">删除</button>`
                 : '');
         return `<div class="user-manage-row">
             <span class="user-manage-name">${escapeHtmlText(u.username)}</span>
@@ -266,6 +283,15 @@ function renderUserManageList(){
 
 function escapeHtmlText(str){
     return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function escapeHtmlAttr(str){
+    return String(str || '')
+        .replace(/&/g,'&amp;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;');
 }
 
 function changeLocalUserRole(username, role){
@@ -363,6 +389,12 @@ async function deleteAuthUser(username){
     }
 
     const users = getAuthUsers();
+    const target = users.find(function(u){ return u.username === name; });
+    if(!target) return;
+    if(target.role === 'admin'){
+        const adminCount = users.filter(function(u){ return u.role === 'admin'; }).length;
+        if(adminCount <= 1) return alert('至少保留一名管理员');
+    }
     if(users.length <= 1){
         return alert('至少保留一个用户，无法删除');
     }
