@@ -3407,6 +3407,23 @@ html.os-windows body{
     text-rendering: geometricPrecision;
     letter-spacing: 0 !important;
     font-weight: 500;
+    /* Windows 用系统字体更锐利，避免网页字体在 WebView2 缩放下发虚 */
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif !important;
+}
+html.os-windows .brand-text h1,
+html.os-windows .modal-title,
+html.os-windows .tab-top button,
+html.os-windows .sab-btn,
+html.os-windows .form-row button,
+html.os-windows .btn-orange,
+html.os-windows .btn-blue,
+html.os-windows .btn-green,
+html.os-windows .btn-red,
+html.os-windows .btn-ghost,
+html.os-windows .status-value{
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif !important;
+    letter-spacing: 0 !important;
+    text-shadow: none !important;
 }
 html.os-windows .app-shell{
     perspective: none !important;
@@ -3816,9 +3833,10 @@ body.light-mode .header-actions .btn-ghost{
             <option value="" data-i18n="time.templateSelect">选择已保存模版</option>
         </select>
         <button class="btn-green" onclick="saveTimeAsTemplate()" data-i18n="time.saveTpl">保存模版</button>
+        <button class="btn-orange" onclick="exportTimeTemplatesForPack()" data-i18n="time.exportTpl">导出模版文件</button>
         <button class="btn-blue" onclick="renameTimeTemplate()" data-i18n="time.rename">重命名</button>
         <button class="btn-red" onclick="delTimeTemplate()" data-i18n="time.deleteTpl">删除</button>
-        <span class="backup-hint" data-i18n="time.hint">下拉选择模版即切换下方课时；编辑后点「保存模版」写入软件本地</span>
+        <span class="backup-hint" data-i18n="time.hint">下拉选择模版即切换下方课时；编辑后点「保存模版」写入本机。打包前请点「导出模版文件」并替换项目里的 timeTemplates.json</span>
     </div>
     <table>
         <thead>
