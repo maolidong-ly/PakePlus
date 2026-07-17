@@ -55,9 +55,14 @@ function saveAutoConfigFromUI(){
 
 function parseRowTimes(timeArr, rowIdx){
     const name = timeArr[rowIdx]?.name || '';
-    const m = name.match(/(\d{2}:\d{2})-(\d{2}:\d{2})/);
+    if(typeof parsePeriodTimeRange === 'function') return parsePeriodTimeRange(name);
+    const m = name.match(/(\d{1,2}:\d{2})\s*[-–—~～]\s*(\d{1,2}:\d{2})/);
     if(!m) return null;
-    return { start: m[1], end: m[2] };
+    const pad = (t) => {
+        const p = t.split(':');
+        return String(p[0]).padStart(2,'0') + ':' + String(p[1]).padStart(2,'0');
+    };
+    return { start: pad(m[1]), end: pad(m[2]) };
 }
 
 function parseCellAssignment(cellStr, timeArr, rowIdx){
