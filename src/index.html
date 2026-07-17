@@ -2451,6 +2451,55 @@ body.lan-readonly #scheduleTable td{
     min-width: min(520px, 92vw);
     max-width: 560px;
 }
+.help-guide-wrap{
+    min-width: min(560px, 94vw);
+    max-width: min(720px, 96vw);
+    max-height: min(86vh, 820px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.help-guide-wrap .modal-title{
+    flex-shrink: 0;
+}
+.help-guide-body{
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 8px;
+    margin: 4px 0 8px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-color);
+}
+.help-guide-body h3{
+    margin: 18px 0 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-color);
+}
+.help-guide-body h3:first-child{
+    margin-top: 0;
+}
+.help-guide-body h4{
+    margin: 14px 0 6px;
+    font-size: 13px;
+    font-weight: 650;
+}
+.help-guide-body p{
+    margin: 0 0 8px;
+}
+.help-guide-body ul{
+    margin: 0 0 10px;
+    padding-left: 1.25em;
+}
+.help-guide-body li{
+    margin: 4px 0;
+}
+.help-guide-wrap .modal-footer{
+    flex-shrink: 0;
+}
 .user-manage-section{
     margin-bottom: 22px;
 }
@@ -3544,6 +3593,7 @@ body.light-mode .header-actions .btn-ghost{
         <span id="licenseTrialBadge" class="license-trial-badge" title="试用期"></span>
         <span id="currentUserLabel" class="header-user-label" title="当前登录用户" data-i18n-title="header.currentUser"></span>
         <span id="lanRoleBadge" class="lan-role-badge" title="局域网权限" data-i18n-title="header.lanRole"></span>
+        <button class="btn-ghost" type="button" onclick="openHelpGuide()" title="说明与操作指南" data-i18n="header.help" data-i18n-title="header.helpTitle">说明</button>
         <button class="btn-ghost" type="button" onclick="openLanModal()" title="局域网主机连接与同步" data-i18n="header.lan" data-i18n-title="header.lanTitle">局域网</button>
         <button class="btn-ghost" type="button" onclick="openUserManageModal()" title="添加或删除用户、修改密码" data-i18n="header.userManage" data-i18n-title="header.userManageTitle">用户管理</button>
         <button class="btn-ghost" type="button" onclick="logoutUser()" title="退出当前登录" data-i18n="header.logout" data-i18n-title="header.logoutTitle">退出登录</button>
@@ -3595,15 +3645,13 @@ body.light-mode .header-actions .btn-ghost{
     </div>
     <div class="form-row">
         <label data-i18n="time.template">课时模版：</label>
-        <select id="timeTemplateSelect">
+        <select id="timeTemplateSelect" onchange="onTimeTemplateSelectChange()" oninput="onTimeTemplateSelectChange()">
             <option value="" data-i18n="time.templateSelect">选择已保存模版</option>
         </select>
-        <button class="btn-orange" onclick="previewTimeTemplate()" data-i18n="time.preview">查看模版</button>
-        <button class="btn-blue" onclick="applyTimeTemplate()" data-i18n="time.load">加载模版</button>
         <button class="btn-green" onclick="saveTimeAsTemplate()" data-i18n="time.saveTpl">保存模版</button>
         <button class="btn-blue" onclick="renameTimeTemplate()" data-i18n="time.rename">重命名</button>
         <button class="btn-red" onclick="delTimeTemplate()" data-i18n="time.deleteTpl">删除</button>
-        <span class="backup-hint" data-i18n="time.hint">可先「查看模版」预览；确认后再「加载模版」。编辑完点「保存模版」写入软件本地</span>
+        <span class="backup-hint" data-i18n="time.hint">下拉选择模版即切换下方课时；编辑后点「保存模版」写入软件本地</span>
     </div>
     <table>
         <thead>
@@ -3819,15 +3867,18 @@ body.light-mode .header-actions .btn-ghost{
             </div>
             <div class="dock-field">
                 <span class="dock-label" data-i18n="schedule.startTime">开始时间</span>
-                <select id="startTimeSelect">
+                <select id="startTimeSelect" onchange="onScheduleTimeSelectChange()">
                     <option value="" data-i18n="schedule.selectStart">请选择开始时间</option>
                 </select>
             </div>
             <div class="dock-field">
                 <span class="dock-label" data-i18n="schedule.endTime">结束时间</span>
-                <select id="endTimeSelect">
+                <select id="endTimeSelect" onchange="onScheduleTimeSelectChange()">
                     <option value="" data-i18n="schedule.selectEnd">请选择结束时间</option>
                 </select>
+            </div>
+            <div class="dock-field dock-field-wide" style="align-self:center;">
+                <span class="backup-hint" style="margin:0;" data-i18n="schedule.timeHint">未选手动时间时按课时自动识别；手动选择后优先生效（各课表通用）。清空起止时间可恢复自动识别。</span>
             </div>
         </div>
     </div>
@@ -4043,6 +4094,16 @@ body.light-mode .header-actions .btn-ghost{
     </div>
 </div>
 
+<div id="helpGuideModal" class="modal-mask" onclick="if(event.target===this)closeHelpGuide()">
+    <div class="modal-wrap help-guide-wrap" onclick="event.stopPropagation()">
+        <div class="modal-title" id="helpGuideTitle">说明与操作指南</div>
+        <div class="help-guide-body" id="helpGuideBody"></div>
+        <div class="modal-footer">
+            <button type="button" onclick="closeHelpGuide()" data-i18n="common.close">关闭</button>
+        </div>
+    </div>
+</div>
+
 <div id="userManageModal" class="modal-mask" onclick="if(event.target===this)closeUserManageModal()">
     <div class="modal-wrap user-manage-wrap" onclick="event.stopPropagation()">
         <div class="modal-title" data-i18n="user.title">用户管理</div>
@@ -4134,9 +4195,10 @@ body.light-mode .header-actions .btn-ghost{
 </div>
 
 <script src="i18n.js"></script>
-<script src="common.js"></script>
+<script src="helpGuide.js"></script>
 <script src="license.js"></script>
 <script src="localStore.js"></script>
+<script src="common.js"></script>
 <script src="lanSync.js"></script>
 <script src="auth.js"></script>
 <script src="baseManage.js"></script>
@@ -4196,6 +4258,7 @@ window.onAppLanguageChange = function(){
         if(typeof renderAutoSchedulePanel === 'function') renderAutoSchedulePanel();
         if(typeof checkAllConflict === 'function' && tab === 'schedule') checkAllConflict();
         if(typeof renderUserManageList === 'function' && document.getElementById('userManageModal')?.style.display === 'flex') renderUserManageList();
+        if(typeof renderHelpGuide === 'function' && document.getElementById('helpGuideModal')?.style.display === 'flex') renderHelpGuide();
         const activeBtn = document.querySelector('.tab-top button.active');
         if(activeBtn && typeof switchTab === 'function') switchTab(tab, activeBtn);
     }catch(e){}
@@ -4263,12 +4326,26 @@ window.onload = async function(){
     if(typeof initAppDataStorage === 'function') await initAppDataStorage();
     if(typeof hookLanDataWrites === 'function') hookLanDataWrites();
     initLocalStorage();
+    // 首次写入默认数据后立刻落盘，确保打包版重启不丢
+    if(typeof flushAppDataNow === 'function'){
+        try{ await flushAppDataNow(); }catch(e){}
+    }
     if(typeof syncClassesAndTables === 'function') syncClassesAndTables();
     if(typeof initTimeTemplates === 'function') await initTimeTemplates();
+    if(typeof flushAppDataNow === 'function'){
+        try{ await flushAppDataNow(); }catch(e){}
+    }
     if(typeof initLanSync === 'function') initLanSync();
     if(typeof applyAppBranding === 'function') applyAppBranding();
     renderTableTags();
     renderTimeTemplateSelect();
+    const tplSelect = document.getElementById('timeTemplateSelect');
+    if(tplSelect && !tplSelect.dataset.boundTplChange){
+        tplSelect.dataset.boundTplChange = '1';
+        tplSelect.addEventListener('change', function(){
+            if(typeof onTimeTemplateSelectChange === 'function') onTimeTemplateSelectChange();
+        });
+    }
     renderTime();
     renderClass();
     renderTeacher();
