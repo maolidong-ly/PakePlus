@@ -3392,16 +3392,28 @@ body.light-mode .nav-card{
     padding: 4px !important;
 }
 
-/* ── Windows 清晰度修复 ──
-   WebView2 + 系统缩放(125%/150%) 下，perspective/translateZ 会把文字栅格化糊掉。
-   Mac Retina 不受影响；Windows 改用阴影表现层次，取消 3D 变换。 */
+/* ── Windows 清晰度 + 下拉可读性修复 ──
+   1) WebView2 原生 <select>/<option> 常忽略页面深色样式，出现白底浅字
+   2) perspective/translateZ、backdrop-filter、文字阴影在系统缩放下易发糊 */
+html.os-windows{
+    color-scheme: dark;
+}
+html.os-windows body.light-mode{
+    color-scheme: light;
+}
 html.os-windows body{
     -webkit-font-smoothing: auto;
-    text-rendering: optimizeLegibility;
+    -moz-osx-font-smoothing: auto;
+    text-rendering: geometricPrecision;
+    letter-spacing: 0 !important;
+    font-weight: 500;
 }
 html.os-windows .app-shell{
     perspective: none !important;
     transform: none !important;
+}
+html.os-windows .main-panel{
+    transform-style: flat !important;
 }
 html.os-windows .main-panel,
 html.os-windows .app-header,
@@ -3413,6 +3425,7 @@ html.os-windows .schedule-dock,
 html.os-windows .form-row,
 html.os-windows .status-bar,
 html.os-windows .tab-top button,
+html.os-windows #scheduleTable,
 html.os-windows #scheduleTable th,
 html.os-windows #scheduleTable td,
 html.os-windows .sab-btn,
@@ -3422,14 +3435,21 @@ html.os-windows .btn-blue,
 html.os-windows .btn-green,
 html.os-windows .btn-red,
 html.os-windows .btn-ghost,
-html.os-windows .btn-exit{
+html.os-windows .btn-exit,
+html.os-windows .modal-wrap,
+html.os-windows .login-box,
+html.os-windows .license-box{
     transform: none !important;
     transform-style: flat !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    text-shadow: none !important;
 }
 html.os-windows .app-bg::after{
     transform: translateX(-50%) !important;
     filter: none !important;
-    opacity: 0.35 !important;
+    opacity: 0.28 !important;
 }
 html.os-windows body:not(.light-mode) .app-header,
 html.os-windows body:not(.light-mode) .panel-card,
@@ -3440,7 +3460,7 @@ html.os-windows body:not(.light-mode) .form-row,
 html.os-windows body:not(.light-mode) .status-bar{
     box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.08),
-        0 8px 24px rgba(0,0,0,0.4) !important;
+        0 6px 18px rgba(0,0,0,0.38) !important;
 }
 html.os-windows body.light-mode .app-header,
 html.os-windows body.light-mode .panel-card,
@@ -3451,15 +3471,81 @@ html.os-windows body.light-mode .form-row,
 html.os-windows body.light-mode .status-bar{
     box-shadow:
         inset 0 1px 0 #fff,
-        0 8px 20px rgba(15,55,90,0.1) !important;
+        0 6px 16px rgba(15,55,90,0.1) !important;
 }
+html.os-windows #scheduleTable td:hover:not(.time-col):not(.split-row),
+html.os-windows #scheduleTable td.has-course,
 html.os-windows body:not(.light-mode) .tab-top button.active,
 html.os-windows body.light-mode .tab-top button.active{
     transform: none !important;
 }
-html.os-windows #scheduleTable td:hover:not(.time-col):not(.split-row),
-html.os-windows #scheduleTable td.has-course{
-    transform: none !important;
+
+/* Windows 下拉：强制实底+对比色，避免白底看不清 */
+html.os-windows body:not(.light-mode) select,
+html.os-windows body:not(.light-mode) .status-select,
+html.os-windows body:not(.light-mode) .form-row select,
+html.os-windows body:not(.light-mode) .dock-field select,
+html.os-windows body:not(.light-mode) .tm-row select,
+html.os-windows body:not(.light-mode) .tools-export-item select,
+html.os-windows body:not(.light-mode) .schedule-dock select,
+html.os-windows body:not(.light-mode) .auto-constraint-form select{
+    background: #0c1a32 !important;
+    background-image: none !important;
+    color: #e8f4ff !important;
+    border: 1px solid rgba(34,240,255,0.35) !important;
+    box-shadow: none !important;
+    -webkit-text-fill-color: #e8f4ff !important;
+    color-scheme: dark;
+}
+html.os-windows body:not(.light-mode) option,
+html.os-windows body:not(.light-mode) optgroup{
+    background-color: #0c1a32 !important;
+    color: #e8f4ff !important;
+    -webkit-text-fill-color: #e8f4ff !important;
+}
+html.os-windows body.light-mode select,
+html.os-windows body.light-mode .status-select,
+html.os-windows body.light-mode .form-row select,
+html.os-windows body.light-mode .dock-field select,
+html.os-windows body.light-mode .tm-row select,
+html.os-windows body.light-mode .tools-export-item select,
+html.os-windows body.light-mode .schedule-dock select{
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(15,23,42,0.18) !important;
+    box-shadow: none !important;
+    -webkit-text-fill-color: #0f172a !important;
+    color-scheme: light;
+}
+html.os-windows body.light-mode option,
+html.os-windows body.light-mode optgroup{
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
+}
+html.os-windows body:not(.light-mode) input,
+html.os-windows body:not(.light-mode) textarea,
+html.os-windows body:not(.light-mode) .search-input{
+    background: #0c1a32 !important;
+    background-image: none !important;
+    color: #e8f4ff !important;
+    -webkit-text-fill-color: #e8f4ff !important;
+    box-shadow: none !important;
+}
+html.os-windows body.light-mode input,
+html.os-windows body.light-mode textarea,
+html.os-windows body.light-mode .search-input{
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
+    box-shadow: none !important;
+}
+html.os-windows body:not(.light-mode) .brand-text h1{
+    animation: none !important;
+    -webkit-text-fill-color: #e8fbff !important;
+    text-shadow: none !important;
 }
 
 body.light-mode .tab-top button{
