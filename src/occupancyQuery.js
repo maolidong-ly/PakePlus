@@ -72,16 +72,16 @@ function collectReferenceSlots(scope){
     tables.forEach(table=>{
         (table.timeList || []).forEach(item=>{
             if(item.isSplit) return;
-            const m = item.name.match(/(\d{2}:\d{2})-(\d{2}:\d{2})/);
-            if(m) addSlot(m[1], m[2], item.name);
+            const parsed = typeof parsePeriodTimeRange === 'function' ? parsePeriodTimeRange(item.name) : null;
+            if(parsed) addSlot(parsed.start, parsed.end, item.name);
         });
     });
 
     if(slotMap.size === 0){
         DEFAULT_TIME.forEach(item=>{
             if(item.isSplit) return;
-            const m = item.name.match(/(\d{2}:\d{2})-(\d{2}:\d{2})/);
-            if(m) addSlot(m[1], m[2], item.name);
+            const parsed = typeof parsePeriodTimeRange === 'function' ? parsePeriodTimeRange(item.name) : null;
+            if(parsed) addSlot(parsed.start, parsed.end, item.name);
         });
     }
 
