@@ -217,7 +217,7 @@ function queueAppDataFlush(){
     appDataFlushTimer = setTimeout(function(){
         appDataFlushTimer = null;
         appDataFlushPromise = flushAppDataToBackend();
-    }, 280);
+    }, 120);
 }
 
 async function flushAppDataNow(){
@@ -229,6 +229,16 @@ async function flushAppDataNow(){
         try{ await appDataFlushPromise; }catch(e){}
     }
     return flushAppDataToBackend();
+}
+
+/** 关键写盘：排课/课表等变更后尽快落盘，降低异常退出丢数据风险 */
+function queueAppDataFlushUrgent(){
+    if(!isLargeCapacityBackend()) return;
+    if(appDataFlushTimer) clearTimeout(appDataFlushTimer);
+    appDataFlushTimer = setTimeout(function(){
+        appDataFlushTimer = null;
+        appDataFlushPromise = flushAppDataToBackend();
+    }, 30);
 }
 
 /** 读业务大数据：优先内存缓存 */
@@ -246,7 +256,9 @@ function appSetItem(key, value){
     const str = value == null ? '' : String(value);
     if(isBulkStorageKey(key) && isLargeCapacityBackend()){
         appDataCache[key] = str;
-        queueAppDataFlush();
+        // 课表主数据优先更快落盘
+        if(key === 'multiTableData') queueAppDataFlushUrgent();
+        else queueAppDataFlush();
         try{ localStorage.setItem(key, str); }catch(e){ /* 超过 5MB 忽略 */ }
         return true;
     }
@@ -357,16 +369,33 @@ async function clearAppDataStorage(){
     }
 }
 
-// 关闭页面前把缓存刷盘
+// 关闭页面前 / 切入后台时把缓存刷盘，避免打包版异常退出丢课表
 if(typeof window !== 'undefined'){
-    window.addEventListener('beforeunload', function(){
-        if(isLargeCapacityBackend()){
-            // 同步尽最大努力：无法 await，依赖已定时的 debounce；打包版关掉前再触发一次
-            if(appDataFlushTimer){
-                clearTimeout(appDataFlushTimer);
-                appDataFlushTimer = null;
-            }
-            flushAppDataToBackend();
+    function flushAppDataBestEffort(){
+        if(!isLargeCapacityBackend()) return;
+        if(appDataFlushTimer){
+            clearTimeout(appDataFlushTimer);
+            appDataFlushTimer = null;
         }
+        flushAppDataToBackend();
+    }
+    window.addEventListener('beforeunload', flushAppDataBestEffort);
+    window.addEventListener('pagehide', flushAppDataBestEffort);
+    document.addEventListener('visibilitychange', function(){
+        if(document.visibilityState === 'hidden') flushAppDataBestEffort();
     });
+    // 挂到 window，供退出按钮 await
+    window.flushAppDataNow = flushAppDataNow;
+    window.appGetItem = appGetItem;
+    window.appSetItem = appSetItem;
+    window.appRemoveItem = appRemoveItem;
+    window.initAppDataStorage = initAppDataStorage;
+    window.clearAppDataStorage = clearAppDataStorage;
+    window.getAppStorageBackend = getAppStorageBackend;
+    window.getAppStorageBackendLabel = getAppStorageBackendLabel;
+    window.isBulkStorageKey = isBulkStorageKey;
+    window.isLargeCapacityBackend = isLargeCapacityBackend;
+    window.getBulkDataByteSize = getBulkDataByteSize;
+    window.getAppDataQuotaBytes = getAppDataQuotaBytes;
+    window.APP_BULK_STORAGE_KEYS = APP_BULK_STORAGE_KEYS;
 }
