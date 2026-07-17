@@ -1,12 +1,12 @@
 // ===================== 【新增开始：时间工具函数】 =====================
 /**
- * 生成 08:00 ~ 22:30 间隔5分钟的时间选项数组
+ * 生成 06:00 ~ 23:30 间隔5分钟的时间选项数组（覆盖早自习等常用模版）
  */
 function generateTimeOptions() {
     const timeList = [];
-    let hour = 8;
+    let hour = 6;
     let minute = 0;
-    while (!(hour === 22 && minute > 30)) {
+    while (!(hour === 23 && minute > 30)) {
         const h = String(hour).padStart(2, '0');
         const m = String(minute).padStart(2, '0');
         timeList.push(`${h}:${m}`);
@@ -19,6 +19,52 @@ function generateTimeOptions() {
     return timeList;
 }
 const TIME_OPTIONS = generateTimeOptions();
+
+/** 手动改过起止时间后优先生效；清空两者后恢复「按课时自动识别」 */
+let scheduleTimeManualOverride = false;
+
+function onScheduleTimeSelectChange(){
+    const startSel = document.getElementById('startTimeSelect');
+    const endSel = document.getElementById('endTimeSelect');
+    const s = startSel ? startSel.value : '';
+    const e = endSel ? endSel.value : '';
+    scheduleTimeManualOverride = !!(s || e);
+    if(!s && !e) scheduleTimeManualOverride = false;
+}
+
+function ensureTimeSelectOption(selectEl, time){
+    if(!selectEl || !time) return;
+    const exists = Array.from(selectEl.options).some(function(o){ return o.value === time; });
+    if(exists) return;
+    const opt = document.createElement('option');
+    opt.value = time;
+    opt.textContent = time;
+    let inserted = false;
+    for(let i = 1; i < selectEl.options.length; i++){
+        if(selectEl.options[i].value > time){
+            selectEl.insertBefore(opt, selectEl.options[i]);
+            inserted = true;
+            break;
+        }
+    }
+    if(!inserted) selectEl.appendChild(opt);
+}
+
+function applyPeriodTimeToSelects(periodName, force){
+    const startSel = document.getElementById('startTimeSelect');
+    const endSel = document.getElementById('endTimeSelect');
+    if(!startSel || !endSel) return null;
+    const parsed = typeof parsePeriodTimeRange === 'function' ? parsePeriodTimeRange(periodName) : null;
+    if(!parsed) return null;
+    if(!force && scheduleTimeManualOverride && startSel.value && endSel.value){
+        return { start: startSel.value, end: endSel.value, fromPeriod: false };
+    }
+    ensureTimeSelectOption(startSel, parsed.start);
+    ensureTimeSelectOption(endSel, parsed.end);
+    startSel.value = parsed.start;
+    endSel.value = parsed.end;
+    return { start: parsed.start, end: parsed.end, fromPeriod: true };
+}
 
 /**
  * 初始化页面开始、结束时间下拉框
@@ -37,8 +83,14 @@ function initTimeSelect() {
         startSel.innerHTML += `<option value="${time}">${time}</option>`;
         endSel.innerHTML += `<option value="${time}">${time}</option>`;
     });
-    if(prevStart) startSel.value = prevStart;
-    if(prevEnd) endSel.value = prevEnd;
+    if(prevStart){
+        ensureTimeSelectOption(startSel, prevStart);
+        startSel.value = prevStart;
+    }
+    if(prevEnd){
+        ensureTimeSelectOption(endSel, prevEnd);
+        endSel.value = prevEnd;
+    }
 }
 
 /**
@@ -59,7 +111,7 @@ function validTimeRange(start, end) {
     const sMin = toMin(start);
     const eMin = toMin(end);
     if (eMin <= sMin) {
-        alert('结束时间必须晚于开始时间');
+        alert(typeof t==='function'?t('msg.endAfterStart'):'结束时间必须晚于开始时间');
         return false;
     }
     return true;
@@ -152,23 +204,36 @@ function renderTime(){
         document.getElementById("timeList").innerHTML = `<tr><td colspan="3" style="color:red;text-align:center;">请先选中一张课表，才能查看/编辑本班级专属课时</td></tr>`;
         return;
     }
-    let arr=getTimeData();let html="";
+    paintTimeList(getTimeData());
+}
+
+/** 将任意课时数组渲染到下方列表（模版切换时直接用） */
+function paintTimeList(arr){
+    const tbody = document.getElementById("timeList");
+    if(!tbody) return;
+    arr = Array.isArray(arr) ? arr : [];
+    if(!arr.length){
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:14px;">${typeof t==='function'?t('msg.noPeriodsInTemplate'):'该模版暂无课时'}</td></tr>`;
+        return;
+    }
+    let html = "";
     arr.forEach((item,idx)=>{
-        const name = item.name;
+        const name = item.name || '';
         const nameDisplay = (typeof displayPeriodLabel==='function'?displayPeriodLabel(name):name);
         const splitTag = item.isSplit
             ? '<span style="color:#2563eb;margin-left:8px;">'+(typeof t==='function'?t('msg.splitRow'):'【分割行】')+'</span>'
             : '';
+        const safeName = String(name).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         html+=`<tr>
             <td>${idx+1}</td>
-            <td ondblclick="editTime(${idx},'${name.replace(/'/g,"\\'")}',${item.isSplit},this)">${nameDisplay}${splitTag}</td>
+            <td ondblclick="editTime(${idx},'${safeName}',${!!item.isSplit},this)">${nameDisplay}${splitTag}</td>
             <td>
-                <button class="edit" onclick="editTime(${idx},'${name.replace(/'/g,"\\'")}',${item.isSplit},this.parentElement.previousElementSibling)">${typeof t==='function'?t('common.edit'):'修改'}</button>
+                <button class="edit" onclick="editTime(${idx},'${safeName}',${!!item.isSplit},this.parentElement.previousElementSibling)">${typeof t==='function'?t('common.edit'):'修改'}</button>
                 <button class="del" onclick="delTime(${idx})">${typeof t==='function'?t('common.delete'):'删除'}</button>
             </td>
         </tr>`;
     });
-    document.getElementById("timeList").innerHTML=html;
+    tbody.innerHTML = html;
 }
 
 // ========== 班级管理（班级名称 = 课表名称，新增班级自动创建课表） ==========
@@ -190,6 +255,34 @@ function createTableForClass(className, timeList){
         timeList: timeList || JSON.parse(JSON.stringify(DEFAULT_TIME)),
         autoScheduleConfig: { constraints: [], settings: { onlyEmpty: true, checkGlobal: true, spreadWeek: true } }
     };
+}
+
+/** 删除指定班级下的全部课程（班级不存在时课程同步清理） */
+function removeCoursesForClass(className){
+    const name = (className || '').trim();
+    if(!name) return 0;
+    const courses = getCourseData();
+    const next = courses.filter(function(c){ return (c.cls || '').trim() !== name; });
+    const removed = courses.length - next.length;
+    if(removed > 0) saveCourseData(next);
+    return removed;
+}
+
+/** 清理班级列表中已不存在的课程 */
+function pruneOrphanCourses(){
+    const classSet = {};
+    getClassData().forEach(function(cls){
+        const name = (cls || '').trim();
+        if(name) classSet[name] = true;
+    });
+    const courses = getCourseData();
+    const next = courses.filter(function(c){
+        const cls = (c.cls || '').trim();
+        return !cls || classSet[cls];
+    });
+    const removed = courses.length - next.length;
+    if(removed > 0) saveCourseData(next);
+    return removed;
 }
 
 function syncClassesAndTables(){
@@ -221,6 +314,7 @@ function syncClassesAndTables(){
     });
 
     if(changed) saveTableList();
+    pruneOrphanCourses();
     if(tableList.length && !currentTableId){
         currentTableId = tableList[0].id;
     }else if(currentTableId && !tableList.find(function(t){ return t.id === currentTableId; })){
@@ -267,10 +361,11 @@ async function delClass(idx){
     if(tableList.length <= 1 && findTableByClassName(className)){
         return alert("至少保留一个班级/课表");
     }
-    if(!(await showAppConfirm('确定删除班级「' + className + '」？对应课表及排课数据将一并删除。'))) return;
+    if(!(await showAppConfirm('确定删除班级「' + className + '」？对应课表、排课数据及该班课程将一并删除。'))) return;
 
     arr.splice(idx, 1);
     saveClassData(arr);
+    removeCoursesForClass(className);
 
     const table = findTableByClassName(className);
     if(table){
@@ -290,6 +385,8 @@ async function delClass(idx){
     }
 
     renderClass();
+    renderCourse();
+    renderCourseNameSelect();
     renderCourseSelects();
 }
 function editClass(idx){
@@ -723,6 +820,7 @@ function renderCourseSelects(){
 function renderTimeTemplateSelect(){
     const timeSelect = document.getElementById('timeTemplateSelect');
     if(timeSelect){
+        const prev = timeSelect.value;
         timeSelect.innerHTML = '<option value="">'+(typeof t==='function'?t('time.templateSelect'):'选择已保存模版')+'</option>';
         timeTemplateList.forEach((item, index)=>{
             const option = document.createElement('option');
@@ -730,9 +828,11 @@ function renderTimeTemplateSelect(){
             option.textContent = item.name;
             timeSelect.appendChild(option);
         });
+        if(prev !== '' && timeTemplateList[prev]) timeSelect.value = prev;
     }
     const newClassSelect = document.getElementById('newClassTimeTemplate');
     if(newClassSelect){
+        const prevClass = newClassSelect.value;
         newClassSelect.innerHTML = '<option value="default">'+(typeof t==='function'?t('class.defaultTime'):'默认课时')+'</option>';
         timeTemplateList.forEach((item, index)=>{
             const option = document.createElement('option');
@@ -740,6 +840,7 @@ function renderTimeTemplateSelect(){
             option.textContent = item.name;
             newClassSelect.appendChild(option);
         });
+        if(prevClass && (prevClass === 'default' || timeTemplateList[prevClass])) newClassSelect.value = prevClass;
     }
 }
 
@@ -795,9 +896,7 @@ function switchTable(tid){
     saveSnapshot();
     renderCourseSelects();
     lastSelectCourseValue = "";
-    // 切换课表不重置清空模式，保留清空状态，且只作用于当前课表
-    if(document.getElementById('startTimeSelect')) document.getElementById('startTimeSelect').value = '';
-    if(document.getElementById('endTimeSelect')) document.getElementById('endTimeSelect').value = '';
+    // 切换课表保留起止时间选择，便于跨课表用同一套手动时间排课
     // 切换课表强制刷新导出下拉
     renderExportTeacherSelect();
     renderExportRoomSelect();
@@ -812,7 +911,7 @@ async function delCurrentTable(){
     const curr = getCurrentTableInfo();
     if(!curr) return;
     const className = curr.bindClass || curr.name;
-    if(!(await showAppConfirm('确定删除课表「' + className + '」？班级列表中对应班级也将删除。'))) return;
+    if(!(await showAppConfirm('确定删除课表「' + className + '」？班级列表中对应班级及该班课程也将删除。'))) return;
 
     const classes = getClassData();
     const cIdx = classes.indexOf(className);
@@ -820,6 +919,7 @@ async function delCurrentTable(){
         classes.splice(cIdx, 1);
         saveClassData(classes);
     }
+    removeCoursesForClass(className);
 
     let idx = tableList.findIndex(t=>t.id === currentTableId);
     tableList.splice(idx,1);
@@ -829,6 +929,8 @@ async function delCurrentTable(){
     renderClass();
     renderTime();
     renderSchedule();
+    renderCourse();
+    renderCourseNameSelect();
     renderCourseSelects();
     checkAllConflict();
     saveSnapshot();
@@ -1254,11 +1356,11 @@ function buildMergedExportTimeRows(allTableList){
                 if(item.name.includes('晚饭')) dinnerLabel = dinnerLabel || item.name;
                 return;
             }
-            const m = item.name.match(/(\d{2}:\d{2})-(\d{2}:\d{2})/);
-            if(!m) return;
-            const key = `${m[1]}-${m[2]}`;
+            const parsed = typeof parsePeriodTimeRange === 'function' ? parsePeriodTimeRange(item.name) : null;
+            if(!parsed) return;
+            const key = `${parsed.start}-${parsed.end}`;
             if(!slotMap.has(key)){
-                slotMap.set(key, { type: 'slot', start: m[1], end: m[2], label: item.name });
+                slotMap.set(key, { type: 'slot', start: parsed.start, end: parsed.end, label: item.name });
             }
         });
     });
