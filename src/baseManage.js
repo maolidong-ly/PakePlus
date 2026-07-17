@@ -1151,6 +1151,7 @@ function importAllBackup() {
             appSetItem('teacherList', JSON.stringify(backupData.teacherList || []));
             appSetItem('roomList', JSON.stringify(backupData.roomList || []));
             appSetItem('courseList', JSON.stringify(backupData.courseList || []));
+            if(typeof invalidateCourseInfoCache === 'function') invalidateCourseInfoCache();
 
             if (backupData.timeTemplateList) {
                 timeTemplateList = backupData.timeTemplateList;
