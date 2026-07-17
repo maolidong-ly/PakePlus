@@ -28,6 +28,31 @@ const DEFAULT_TIME_TEMPLATES = [
     }
 ];
 const DEFAULT_GROUP = ["文科1班","理科1班","一对一学员组1","一对一学员组2","小班课1组"];
+
+/** 规范化时钟时间为 HH:mm（支持 7:40 → 07:40） */
+function normalizeClockTime(token){
+    if(token == null) return '';
+    const m = String(token).trim().match(/^(\d{1,2}):(\d{2})$/);
+    if(!m) return '';
+    const h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    if(isNaN(h) || isNaN(min) || h > 23 || min > 59) return '';
+    return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+}
+
+/**
+ * 从课时名称中解析起止时间（兼容不同模版写法）
+ * 例：第1节 08:20-09:10 / 早自习7:40-8:15 / 晚自习（上）19:30～20:40
+ */
+function parsePeriodTimeRange(name){
+    if(name == null || name === '') return null;
+    const m = String(name).match(/(\d{1,2}:\d{2})\s*[-–—~～]\s*(\d{1,2}:\d{2})/);
+    if(!m) return null;
+    const start = normalizeClockTime(m[1]);
+    const end = normalizeClockTime(m[2]);
+    if(!start || !end) return null;
+    return { start: start, end: end };
+}
 const DEFAULT_TEACHERS = ["语文老师","数学老师","英语老师","历史老师","化学老师","专职辅导A","专职辅导B","王帅","刘汉宇"];
 const DEFAULT_ROOMS = ["普通教室1","普通教室2","一对一隔间1","一对一隔间2","小班教室","实验室"];
 const DEFAULT_COURSES = [
@@ -1100,63 +1125,76 @@ async function saveTimeAsTemplate(){
     await showAppAlert('课时模版保存成功，已写入软件本地，下次打开仍可使用');
 }
 function previewTimeTemplate(){
+    onTimeTemplateSelectChange();
+}
+/** @param {boolean} [silent] 下拉切换时静默应用，不弹确认框 */
+async function applyTimeTemplate(silent){
     const selectDom = document.getElementById('timeTemplateSelect');
     const idx = selectDom ? selectDom.value : '';
-    if(idx === '') return showAppAlert('请先在下拉列表选择一个已保存的模版');
-    const template = timeTemplateList[idx];
-    if(!template) return showAppAlert('未找到该模版');
-
-    const list = Array.isArray(template.timeList) ? template.timeList : [];
-    let rowsHtml = '';
-    if(!list.length){
-        rowsHtml = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:18px;">该模版暂无课时</td></tr>';
-    }else{
-        list.forEach(function(item, i){
-            const name = item?.name || '';
-            const splitTag = item?.isSplit ? '<span style="color:#60a5fa;margin-left:8px;">【分割行】</span>' : '';
-            rowsHtml += `<tr>
-                <td style="text-align:center;width:56px;">${i + 1}</td>
-                <td>${escAppDialogText(name)}${splitTag}</td>
-                <td style="text-align:center;width:80px;color:var(--text-muted);font-size:12px;">${item?.isSplit ? '分割行' : '普通课时'}</td>
-            </tr>`;
-        });
+    if(idx === '') return false;
+    if(!timeTemplateList[idx]){
+        await showAppAlert(typeof t==='function'?t('msg.templateNotFound'):'未找到该模版');
+        return false;
     }
-
-    document.getElementById('modalTitle').innerText = '查看模版：' + (template.name || '');
-    document.getElementById('modalBody').innerHTML = `
-        <p style="margin-bottom:12px;font-size:13px;color:var(--text-muted);">仅预览，不会修改当前课表。共 ${list.length} 条课时。</p>
-        <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                <thead>
-                    <tr style="background:rgba(37,99,235,0.15);">
-                        <th style="padding:8px;text-align:center;">序号</th>
-                        <th style="padding:8px;text-align:left;">课时名称</th>
-                        <th style="padding:8px;text-align:center;">类型</th>
-                    </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-            </table>
-        </div>
-    `;
-    document.getElementById('modalFooter').innerHTML = `
-        <button type="button" onclick="closeAutoModal()">关闭</button>
-        <button type="button" class="edit" onclick="closeAutoModal();applyTimeTemplate()">加载到当前课表</button>
-    `;
-    document.getElementById('autoModal').style.display = 'flex';
-}
-async function applyTimeTemplate(){
-    const selectDom = document.getElementById('timeTemplateSelect');
-    const idx = selectDom.value;
-    if(idx === '') return showAppAlert('请先在下拉列表选择一个已保存的模版');
-    if(!currentTableId) return showAppAlert("请先选中一张课表");
-    const ok = await showAppConfirm('确定用选中模版覆盖当前课表的课时设置吗？');
-    if(!ok) return;
-    saveTimeData(JSON.parse(JSON.stringify(timeTemplateList[idx].timeList)));
-    renderTime();
+    if(typeof canEditData === 'function' && !canEditData()){
+        // 只读仍允许预览模版内容
+        if(typeof paintTimeList === 'function'){
+            paintTimeList(JSON.parse(JSON.stringify(timeTemplateList[idx].timeList || [])));
+        }
+        if(!silent){
+            await showAppAlert(typeof t==='function'?t('msg.readonlyNoEdit'):'当前账号为只读，无法修改课时。');
+        }
+        return false;
+    }
+    if(!currentTableId){
+        if(typeof paintTimeList === 'function'){
+            paintTimeList(JSON.parse(JSON.stringify(timeTemplateList[idx].timeList || [])));
+        }
+        if(!silent){
+            await showAppAlert(typeof t==='function'?t('msg.selectTableFirst'):'请先选中一张课表');
+        }
+        return false;
+    }
+    if(!silent){
+        const ok = await showAppConfirm(typeof t==='function'?t('msg.confirmApplyTemplate'):'确定用选中模版覆盖当前课表的课时设置吗？');
+        if(!ok) return false;
+    }
+    const list = JSON.parse(JSON.stringify(timeTemplateList[idx].timeList || []));
+    saveTimeData(list);
+    if(typeof paintTimeList === 'function') paintTimeList(list);
+    else renderTime();
     renderSchedule();
     checkAllConflict();
     saveSnapshot();
-    await showAppAlert('模版加载完成，当前课表课时已更新');
+    if(!silent){
+        await showAppAlert(typeof t==='function'?t('msg.templateLoaded'):'模版加载完成，当前课表课时已更新');
+    }
+    return true;
+}
+function onTimeTemplateSelectChange(){
+    const selectDom = document.getElementById('timeTemplateSelect');
+    if(!selectDom) return;
+    const idx = selectDom.value;
+    if(idx === ''){
+        if(typeof renderTime === 'function') renderTime();
+        return;
+    }
+    const tpl = timeTemplateList[idx] || timeTemplateList[Number(idx)];
+    if(!tpl){
+        if(typeof showAppAlert === 'function'){
+            showAppAlert(typeof t==='function'?t('msg.templateNotFound'):'未找到该模版');
+        }
+        return;
+    }
+    const list = JSON.parse(JSON.stringify(tpl.timeList || []));
+    // 先立刻刷新下方列表，避免权限/课表状态导致“看起来没反应”
+    if(typeof paintTimeList === 'function') paintTimeList(list);
+    if(!currentTableId) return;
+    if(typeof canEditData === 'function' && !canEditData()) return;
+    saveTimeData(list);
+    if(typeof renderSchedule === 'function') renderSchedule();
+    if(typeof checkAllConflict === 'function') checkAllConflict();
+    if(typeof saveSnapshot === 'function') saveSnapshot();
 }
 async function renameTimeTemplate(){
     const selectDom = document.getElementById('timeTemplateSelect');
@@ -1338,11 +1376,12 @@ function checkAllConflict() {
             // 兼容旧格式：4段 课程|教师|教室|班级
             if (saveParts.length === 4) {
                 courseKey = cellSaveStr;
-                // 从当前课表课时解析时间
-                const timeMatch = timeArr[rowIdx]?.name.match(/(\d{2}:\d{2})-(\d{2}:\d{2})/);
-                if (!timeMatch) return;
-                startTime = timeMatch[1];
-                endTime = timeMatch[2];
+                const times = typeof parsePeriodTimeRange === 'function'
+                    ? parsePeriodTimeRange(timeArr[rowIdx]?.name)
+                    : null;
+                if (!times) return;
+                startTime = times.start;
+                endTime = times.end;
             } 
             // 新格式：6段 课程|教师|教室|班级|开始|结束
             else if (saveParts.length >= 6) {
