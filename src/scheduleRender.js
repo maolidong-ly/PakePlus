@@ -82,6 +82,24 @@ function clearCell(){
     enterClearCellMode();
 }
 
+function paintScheduleCell(cell, cKey){
+    if(!cell) return;
+    const info = getCourseInfo(cKey);
+    let showText = '';
+    if(info){
+        if(currentView === 'classView'){
+            showText = (typeof displayCourseName==='function'?displayCourseName(info.name):info.name);
+        }else if(currentView === 'teacherView'){
+            showText = info.teacher;
+        }else{
+            showText = (typeof displayLocaleText==='function'?displayLocaleText(info.room):info.room);
+        }
+    }
+    cell.textContent = showText;
+    cell.style.color = '';
+    cell.style.fontWeight = '';
+}
+
 // ========== 单元格操作 ==========
 function clickCell(cell){
     if(typeof canEditData === 'function' && !canEditData()){
@@ -96,8 +114,9 @@ function clickCell(cell){
         delete schedule[key];
         saveCurrentTableData(schedule);
         saveSnapshot();
-        renderSchedule();
-        checkAllConflict();
+        paintScheduleCell(cell, '');
+        if(typeof scheduleConflictCheckSoon === 'function') scheduleConflictCheckSoon();
+        else checkAllConflict();
         return;
     }
 
@@ -135,9 +154,8 @@ function clickCell(cell){
     saveCurrentTableData(schedule);
     saveSnapshot();
 
-    // 【关键】不清空课程，实现连续排课不用重复选
-    // document.getElementById("courseSelect").value = "";
-
-    renderSchedule();
-    checkAllConflict();
+    // 只更新当前格，冲突检测延后合并执行，避免 200 张课表时连点卡顿
+    paintScheduleCell(cell, saveVal);
+    if(typeof scheduleConflictCheckSoon === 'function') scheduleConflictCheckSoon();
+    else checkAllConflict();
 }
