@@ -467,6 +467,34 @@ function saveTableList(){
         throw err;
     }
 }
+
+/** 排课连续点击时合并写盘，避免每次 stringify 全部课表 */
+let _tableListSaveTimer = null;
+function scheduleSaveTableList(delayMs){
+    if(_tableListSaveTimer) clearTimeout(_tableListSaveTimer);
+    _tableListSaveTimer = setTimeout(function(){
+        _tableListSaveTimer = null;
+        try{ saveTableList(); }catch(e){}
+    }, delayMs == null ? 220 : delayMs);
+}
+function flushSaveTableList(){
+    if(_tableListSaveTimer){
+        clearTimeout(_tableListSaveTimer);
+        _tableListSaveTimer = null;
+    }
+    try{ saveTableList(); }catch(e){}
+}
+
+/** 冲突检测防抖：连点排课时不阻塞界面 */
+let _conflictCheckTimer = null;
+function scheduleConflictCheckSoon(delayMs){
+    if(_conflictCheckTimer) clearTimeout(_conflictCheckTimer);
+    _conflictCheckTimer = setTimeout(function(){
+        _conflictCheckTimer = null;
+        if(typeof flushSaveTableList === 'function') flushSaveTableList();
+        checkAllConflict();
+    }, delayMs == null ? 450 : delayMs);
+}
 const STORAGE_DEFAULT_QUOTA = 5 * 1024 * 1024;
 const STORAGE_EMPTY_TABLE_EST = 1800;
 /** 按常见排课密度估算（约 6KB/张），避免空课表把“还可增”算得过大 */
@@ -736,10 +764,45 @@ function saveCurrentTableData(data){
     if(!currentTableId) return;
     const item = tableList.find(t=>t.id === currentTableId);
     if(item) item.data = data;
-    saveTableList();
+    if(typeof scheduleSaveTableList === 'function') scheduleSaveTableList();
+    else saveTableList();
 }
 
 // 基础数据读写（全局公共基础数据）
+// 课程信息解析 四维度匹配：课程|教师|教室|班级（带缓存，避免每次 find 都解析整表）
+let _courseInfoMap = null;
+let _courseInfoMapSrc = null;
+
+function invalidateCourseInfoCache(){
+    _courseInfoMap = null;
+    _courseInfoMapSrc = null;
+}
+
+function getCourseInfoMap(){
+    const raw = appGetItem('courseList') || '[]';
+    if(_courseInfoMap && _courseInfoMapSrc === raw) return _courseInfoMap;
+    const map = new Map();
+    try{
+        const list = JSON.parse(raw);
+        if(Array.isArray(list)){
+            list.forEach(function(c){
+                if(!c) return;
+                map.set(String(c.name)+'|'+String(c.teacher)+'|'+String(c.room)+'|'+String(c.cls), c);
+            });
+        }
+    }catch(e){}
+    _courseInfoMap = map;
+    _courseInfoMapSrc = raw;
+    return map;
+}
+
+function getCourseInfo(valKey){
+    if(!valKey) return null;
+    const parts = String(valKey).split('|');
+    const key = parts.length >= 4 ? parts.slice(0, 4).join('|') : String(valKey);
+    return getCourseInfoMap().get(key) || null;
+}
+
 function getClassData(){return JSON.parse(appGetItem('classList') || '[]');}
 function saveClassData(arr){appSetItem('classList', JSON.stringify(arr)); touchStorageRefresh();}
 
@@ -750,18 +813,10 @@ function getRoomData(){return JSON.parse(appGetItem('roomList') || '[]');}
 function saveRoomData(arr){appSetItem('roomList', JSON.stringify(arr)); touchStorageRefresh();}
 
 function getCourseData(){return JSON.parse(appGetItem('courseList') || '[]');}
-function saveCourseData(arr){appSetItem('courseList', JSON.stringify(arr)); touchStorageRefresh();}
-
-// 课程信息解析 四维度匹配：课程|教师|教室|班级
-function getCourseInfo(valKey){
-    if(!valKey) return null;
-    const[name,tch,room,cls]=valKey.split("|");
-    return getCourseData().find(x=>
-        x.name === name &&
-        x.teacher === tch &&
-        x.room === room &&
-        x.cls === cls
-    );
+function saveCourseData(arr){
+    appSetItem('courseList', JSON.stringify(arr));
+    invalidateCourseInfoCache();
+    touchStorageRefresh();
 }
 
 // ========== 文件导出（支持自选保存位置，兼容浏览器与 PakePlus/Tauri） ==========
@@ -1362,6 +1417,7 @@ function importCourseBackup(){
         try{
             JSON.parse(e.target.result);
             appSetItem('courseList', e.target.result);
+            if(typeof invalidateCourseInfoCache === 'function') invalidateCourseInfoCache();
             renderCourse();
             renderCourseSelects();
             alert("✅ 课程数据导入成功");
@@ -1396,11 +1452,15 @@ function checkAllConflict() {
     const roomTimeMap = {};
     window.globalConflictList = [];
     const conflictCellSet = new Set();
+    const courseMap = typeof getCourseInfoMap === 'function' ? getCourseInfoMap() : null;
+    const weekLabels = (typeof i18nWeekLabels === 'function') ? i18nWeekLabels() : ['周一','周二','周三','周四','周五','周六','周日'];
+    const conflictTypeTeacher = (typeof t==='function'?t('conflict.typeTeacher'):'教师时间冲突');
+    const conflictTypeRoom = (typeof t==='function'?t('conflict.typeRoom'):'教室场地冲突');
 
     tableList.forEach(tableItem => {
         const bindClassName = tableItem.bindClass;
         const timeArr = tableItem.timeList;
-        const tableData = tableItem.data;
+        const tableData = tableItem.data || {};
 
         Object.keys(tableData).forEach(cellKey => {
             const [rowIdx, weekIdx] = cellKey.split('-').map(Number);
@@ -1410,7 +1470,6 @@ function checkAllConflict() {
             let courseKey, startTime, endTime;
             const saveParts = cellSaveStr.split('|');
 
-            // 兼容旧格式：4段 课程|教师|教室|班级
             if (saveParts.length === 4) {
                 courseKey = cellSaveStr;
                 const times = typeof parsePeriodTimeRange === 'function'
@@ -1419,9 +1478,7 @@ function checkAllConflict() {
                 if (!times) return;
                 startTime = times.start;
                 endTime = times.end;
-            } 
-            // 新格式：6段 课程|教师|教室|班级|开始|结束
-            else if (saveParts.length >= 6) {
+            } else if (saveParts.length >= 6) {
                 courseKey = saveParts.slice(0,4).join('|');
                 startTime = saveParts[4];
                 endTime = saveParts[5];
@@ -1430,13 +1487,12 @@ function checkAllConflict() {
                 return;
             }
 
-            const courseInfo = getCourseInfo(courseKey);
+            const courseInfo = courseMap
+                ? (courseMap.get(courseKey) || null)
+                : getCourseInfo(courseKey);
             if (!courseInfo) return;
 
-            const weekLabels = (typeof i18nWeekLabels === 'function') ? i18nWeekLabels() : ['周一','周二','周三','周四','周五','周六','周日'];
             const weekName = weekLabels[weekIdx];
-            const conflictTypeTeacher = (typeof t==='function'?t('conflict.typeTeacher'):'教师时间冲突');
-            const conflictTypeRoom = (typeof t==='function'?t('conflict.typeRoom'):'教室场地冲突');
             const teacherName = courseInfo.teacher;
             const roomName = courseInfo.room;
             const courseShowText = `${courseInfo.name}（${teacherName}，${roomName}）`;
@@ -1447,8 +1503,9 @@ function checkAllConflict() {
             let hasConflict = false;
             let conflictDetails = [];
 
-            // 教师冲突检测
-            teacherTimeMap[weekName].forEach(item => {
+            const tList = teacherTimeMap[weekName];
+            for (let i = 0; i < tList.length; i++) {
+                const item = tList[i];
                 if (item.teacher === teacherName && isTimeOverlap(startTime, endTime, item.start, item.end)) {
                     hasConflict = true;
                     conflictDetails.push({
@@ -1463,10 +1520,11 @@ function checkAllConflict() {
                         cellKey: `${tableItem.id}|${cellKey}`
                     });
                 }
-            });
+            }
 
-            // 教室冲突检测
-            roomTimeMap[weekName].forEach(item => {
+            const rList = roomTimeMap[weekName];
+            for (let i = 0; i < rList.length; i++) {
+                const item = rList[i];
                 if (item.room === roomName && isTimeOverlap(startTime, endTime, item.start, item.end)) {
                     hasConflict = true;
                     conflictDetails.push({
@@ -1481,21 +1539,23 @@ function checkAllConflict() {
                         cellKey: `${tableItem.id}|${cellKey}`
                     });
                 }
-            });
+            }
 
             if (hasConflict) {
-                conflictDetails.forEach(item => window.globalConflictList.push(item));
+                for (let i = 0; i < conflictDetails.length; i++) {
+                    window.globalConflictList.push(conflictDetails[i]);
+                }
                 conflictCellSet.add(`${tableItem.id}|${cellKey}`);
             }
 
-            teacherTimeMap[weekName].push({
+            tList.push({
                 teacher: teacherName,
                 className: bindClassName,
                 courseText: courseShowText,
                 start: startTime,
                 end: endTime
             });
-            roomTimeMap[weekName].push({
+            rList.push({
                 room: roomName,
                 className: bindClassName,
                 courseText: courseShowText,
@@ -1628,6 +1688,9 @@ function exitGoToBackup(){
 
 async function confirmAppExit(){
     closeExitConfirm();
+    if(typeof flushSaveTableList === 'function'){
+        try{ flushSaveTableList(); }catch(e){}
+    }
     if(typeof flushAppDataNow === 'function'){
         try{ await flushAppDataNow(); }catch(e){}
     }
