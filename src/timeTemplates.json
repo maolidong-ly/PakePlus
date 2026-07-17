@@ -22,5 +22,22 @@
       {"name": "第5节 18:00-20:00", "isSplit": false},
       {"name": "第6节 20:00-22:00", "isSplit": false}
     ]
+  },
+  {
+    "name": "一天6节课（半小时起始）",
+    "timeList": [
+      {"name": "早自习7:40-8:15", "isSplit": false},
+      {"name": "第1节 08:20-09:10", "isSplit": false},
+      {"name": "第2节 09:20-10:10", "isSplit": false},
+      {"name": "第3节 10:20-11:10", "isSplit": false},
+      {"name": "第4节 11:20-12:10", "isSplit": false},
+      {"name": "午休", "isSplit": true},
+      {"name": "第5节 14:30-15:20", "isSplit": false},
+      {"name": "第6节 15:30-16:20", "isSplit": false},
+      {"name": "第7节 16:30-17:20", "isSplit": false},
+      {"name": "晚饭", "isSplit": true},
+      {"name": "第8节 18:30-19:20", "isSplit": false},
+      {"name": "晚自习（上）19:30-20:40", "isSplit": false}
+    ]
   }
 ]
