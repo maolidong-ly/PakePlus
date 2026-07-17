@@ -2,7 +2,17 @@
 <html lang="zh-CN" data-i18n-title-key="app.docTitle">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>西典学校排课系统</title>
+<script>
+/* 尽早标记 Windows，避免 3D transform 在系统缩放下整页发糊 */
+(function(){
+    try{
+        var ua = navigator.userAgent || '';
+        if(/Windows/i.test(ua)) document.documentElement.classList.add('os-windows');
+    }catch(e){}
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -3381,6 +3391,77 @@ body.light-mode .nav-card{
     transform: none !important;
     padding: 4px !important;
 }
+
+/* ── Windows 清晰度修复 ──
+   WebView2 + 系统缩放(125%/150%) 下，perspective/translateZ 会把文字栅格化糊掉。
+   Mac Retina 不受影响；Windows 改用阴影表现层次，取消 3D 变换。 */
+html.os-windows body{
+    -webkit-font-smoothing: auto;
+    text-rendering: optimizeLegibility;
+}
+html.os-windows .app-shell{
+    perspective: none !important;
+    transform: none !important;
+}
+html.os-windows .main-panel,
+html.os-windows .app-header,
+html.os-windows .panel-card,
+html.os-windows .table-manager,
+html.os-windows .nav-card,
+html.os-windows .schedule-action-bar,
+html.os-windows .schedule-dock,
+html.os-windows .form-row,
+html.os-windows .status-bar,
+html.os-windows .tab-top button,
+html.os-windows #scheduleTable th,
+html.os-windows #scheduleTable td,
+html.os-windows .sab-btn,
+html.os-windows .form-row button,
+html.os-windows .btn-orange,
+html.os-windows .btn-blue,
+html.os-windows .btn-green,
+html.os-windows .btn-red,
+html.os-windows .btn-ghost,
+html.os-windows .btn-exit{
+    transform: none !important;
+    transform-style: flat !important;
+}
+html.os-windows .app-bg::after{
+    transform: translateX(-50%) !important;
+    filter: none !important;
+    opacity: 0.35 !important;
+}
+html.os-windows body:not(.light-mode) .app-header,
+html.os-windows body:not(.light-mode) .panel-card,
+html.os-windows body:not(.light-mode) .table-manager,
+html.os-windows body:not(.light-mode) .schedule-action-bar,
+html.os-windows body:not(.light-mode) .schedule-dock,
+html.os-windows body:not(.light-mode) .form-row,
+html.os-windows body:not(.light-mode) .status-bar{
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        0 8px 24px rgba(0,0,0,0.4) !important;
+}
+html.os-windows body.light-mode .app-header,
+html.os-windows body.light-mode .panel-card,
+html.os-windows body.light-mode .table-manager,
+html.os-windows body.light-mode .schedule-action-bar,
+html.os-windows body.light-mode .schedule-dock,
+html.os-windows body.light-mode .form-row,
+html.os-windows body.light-mode .status-bar{
+    box-shadow:
+        inset 0 1px 0 #fff,
+        0 8px 20px rgba(15,55,90,0.1) !important;
+}
+html.os-windows body:not(.light-mode) .tab-top button.active,
+html.os-windows body.light-mode .tab-top button.active{
+    transform: none !important;
+}
+html.os-windows #scheduleTable td:hover:not(.time-col):not(.split-row),
+html.os-windows #scheduleTable td.has-course{
+    transform: none !important;
+}
+
 body.light-mode .tab-top button{
     border-color: transparent !important;
     background: transparent !important;
