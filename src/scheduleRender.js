@@ -102,17 +102,23 @@ function clickCell(cell){
     }
 
     activeCell=cell;
-    // 【优化：点击单元格自动预填充当前行默认时间段，不用每次手动选择】
+    // 课时模版中已写好的时间：未手动指定时自动识别；手动选过起止时间则优先生效（任意课表通用）
     const [rowIdx] = key.split('-').map(Number);
     const timeArr = getTimeData();
     const timeStr = timeArr[rowIdx]?.name || "";
-    const timeMatch = timeStr.match(/(\d{2}:\d{2})-(\d{2}:\d{2})/);
-    if(timeMatch){
-        document.getElementById("startTimeSelect").value = timeMatch[1];
-        document.getElementById("endTimeSelect").value = timeMatch[2];
+    if(typeof applyPeriodTimeToSelects === 'function'){
+        applyPeriodTimeToSelects(timeStr, false);
+    }else{
+        const timeMatch = typeof parsePeriodTimeRange === 'function'
+            ? parsePeriodTimeRange(timeStr)
+            : null;
+        if(timeMatch){
+            document.getElementById("startTimeSelect").value = timeMatch.start;
+            document.getElementById("endTimeSelect").value = timeMatch.end;
+        }
     }
 
-    // 读取课程与自动填充的起止时间
+    // 读取课程与起止时间（手动选择或课时自动识别）
     const selectVal = document.getElementById("courseSelect").value;
     const startTime = document.getElementById("startTimeSelect").value;
     const endTime = document.getElementById("endTimeSelect").value;
