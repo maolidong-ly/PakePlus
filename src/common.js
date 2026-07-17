@@ -9,7 +9,7 @@ const DEFAULT_TIME = [
     {name:"第5节 18:00-20:00",isSplit:false},
     {name:"第6节 20:00-22:00",isSplit:false}
 ];
-// 内置课时模版（随安装包分发，首次使用自动载入；用户保存的模版仍写在 localStorage）
+// 内置课时模版（直接写进 JS，打包后不依赖额外 json 文件也能加载）
 const DEFAULT_TIME_TEMPLATES = [
     {
         name: '6节课模版（上午、下午、晚上各2节，每节2小时）',
@@ -25,6 +25,23 @@ const DEFAULT_TIME_TEMPLATES = [
     {
         name: '全日制课表模版',
         timeList: JSON.parse(JSON.stringify(DEFAULT_TIME))
+    },
+    {
+        name: '一天6节课（半小时起始）',
+        timeList: [
+            {name:"早自习7:40-8:15",isSplit:false},
+            {name:"第1节 08:20-09:10",isSplit:false},
+            {name:"第2节 09:20-10:10",isSplit:false},
+            {name:"第3节 10:20-11:10",isSplit:false},
+            {name:"第4节 11:20-12:10",isSplit:false},
+            {name:"午休",isSplit:true},
+            {name:"第5节 14:30-15:20",isSplit:false},
+            {name:"第6节 15:30-16:20",isSplit:false},
+            {name:"第7节 16:30-17:20",isSplit:false},
+            {name:"晚饭",isSplit:true},
+            {name:"第8节 18:30-19:20",isSplit:false},
+            {name:"晚自习（上）19:30-20:40",isSplit:false}
+        ]
     }
 ];
 const DEFAULT_GROUP = ["文科1班","理科1班","一对一学员组1","一对一学员组2","小班课1组"];
@@ -350,14 +367,17 @@ function mergeTimeTemplateLists(savedList, builtinList){
 }
 
 async function fetchBuiltinTimeTemplates(){
+    // 1) 优先用写进代码里的内置模版（打包后最可靠，不依赖外置 json）
+    const embedded = normalizeTimeTemplateList(DEFAULT_TIME_TEMPLATES);
+    // 2) 若旁边有 timeTemplates.json（开发/手动放入安装目录），合并进去
     try{
         const res = await fetch('timeTemplates.json', { cache: 'no-cache' });
         if(res.ok){
             const data = normalizeTimeTemplateList(await res.json());
-            if(data.length) return data;
+            if(data.length) return mergeTimeTemplateLists(embedded, data);
         }
     }catch(e){}
-    return JSON.parse(JSON.stringify(DEFAULT_TIME_TEMPLATES));
+    return embedded.length ? embedded : JSON.parse(JSON.stringify(DEFAULT_TIME_TEMPLATES));
 }
 
 async function getTimeTemplateAppFilePath(){
@@ -405,20 +425,37 @@ async function initTimeTemplates(){
         JSON.parse(appGetItem('timeTemplateList') || '[]')
     );
 
+    // 打包版应用数据目录中的模版（用户安装后保存的）优先并入
     const fileList = await readTimeTemplatesFromAppFile();
     if(fileList && fileList.length){
-        savedList = mergeTimeTemplateLists(fileList, []);
+        savedList = mergeTimeTemplateLists(savedList, fileList);
     }
 
     if(!savedList.length){
         timeTemplateList = JSON.parse(JSON.stringify(builtinList));
     }else{
+        // 用户模版 + 内置模版（同名不覆盖用户版）
         timeTemplateList = mergeTimeTemplateLists(savedList, builtinList);
     }
 
     appSetItem('timeTemplateList', JSON.stringify(timeTemplateList));
     touchStorageRefresh();
     await persistTimeTemplatesToAppFile();
+    if(typeof renderTimeTemplateSelect === 'function') renderTimeTemplateSelect();
+}
+
+/** 导出当前全部课时模版为 JSON（打包前请导出并替换项目里的 timeTemplates.json） */
+async function exportTimeTemplatesForPack(){
+    if(!Array.isArray(timeTemplateList) || !timeTemplateList.length){
+        return showAppAlert(typeof t==='function'?t('msg.noTemplatesExport'):'暂无课时模版可导出');
+    }
+    const payload = JSON.stringify(timeTemplateList, null, 2);
+    const saved = await saveFileWithPicker(payload, 'timeTemplates.json', {
+        extensions: ['json'], mimeType: 'application/json'
+    });
+    if(saved){
+        await showAppAlert(typeof t==='function'?t('msg.templatesExportOk'):'已导出 timeTemplates.json。打包前请用此文件替换项目目录中的同名文件，自定义模版才会打进安装包。');
+    }
 }
 
 function saveTableList(){
