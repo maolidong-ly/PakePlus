@@ -1,0 +1,308 @@
+// ========== 教师 / 教室 占用与空余查询 ==========
+
+function getOccWeekLabels(){
+    return (typeof i18nWeekLabels === 'function') ? i18nWeekLabels() : ['周一','周二','周三','周四','周五','周六','周日'];
+}
+const OCC_WEEK_LABELS = getOccWeekLabels();
+let occQueryType = 'teacher';
+let occTeacherAll = [];
+let occRoomAll = [];
+
+function setOccQueryType(type){
+    occQueryType = type;
+    document.querySelectorAll('.occ-type-btn').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    const teacherWrap = document.getElementById('occTeacherWrap');
+    const roomWrap = document.getElementById('occRoomWrap');
+    if(teacherWrap) teacherWrap.style.display = type === 'teacher' ? 'flex' : 'none';
+    if(roomWrap) roomWrap.style.display = type === 'room' ? 'flex' : 'none';
+    renderOccupancyQuery();
+}
+
+function getOccScope(){
+    const el = document.querySelector('input[name="occScope"]:checked');
+    return el ? el.value : 'all';
+}
+
+function collectAllAssignments(scope){
+    const list = [];
+    tableList.forEach(tableItem=>{
+        if(scope === 'current' && tableItem.id !== currentTableId) return;
+        const timeArr = tableItem.timeList || [];
+        Object.keys(tableItem.data || {}).forEach(cellKey=>{
+            const [rowIdx, weekIdx] = cellKey.split('-').map(Number);
+            const cellStr = tableItem.data[cellKey];
+            if(!cellStr) return;
+            const parsed = typeof parseCellAssignment === 'function'
+                ? parseCellAssignment(cellStr, timeArr, rowIdx)
+                : null;
+            if(!parsed?.info) return;
+            list.push({
+                tableId: tableItem.id,
+                tableName: tableItem.name,
+                bindClass: tableItem.bindClass || '',
+                weekIdx,
+                rowIdx,
+                start: parsed.startTime,
+                end: parsed.endTime,
+                teacher: parsed.info.teacher,
+                room: parsed.info.room,
+                courseName: parsed.info.name,
+                cls: parsed.info.cls,
+                label: `${parsed.info.name} · ${parsed.info.cls}`
+            });
+        });
+    });
+    return dedupeOccAssignments(list);
+}
+
+/** 跨多行/多格重复存的同一节课 → 只保留一条 */
+function dedupeOccAssignments(list){
+    const seen = new Set();
+    return list.filter(a=>{
+        const key = [
+            a.tableId, a.weekIdx, a.start, a.end,
+            a.teacher, a.room, a.courseName,
+            a.bindClass || '', a.cls || ''
+        ].join('|');
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function occSlotKey(slot){
+    return `${slot.start}-${slot.end}`;
+}
+
+/** 自定义时段跨多个模板行时，只在「第一个重叠的行」显示（与导出课表一致） */
+function getPrimaryOccSlotKey(slots, assignment){
+    for(let i = 0; i < slots.length; i++){
+        const slot = slots[i];
+        if(isTimeOverlap(assignment.start, assignment.end, slot.start, slot.end)){
+            return occSlotKey(slot);
+        }
+    }
+    return null;
+}
+
+function collectReferenceSlots(scope){
+    const slotMap = new Map();
+    const addSlot = (start, end, label)=>{
+        if(!start || !end) return;
+        const key = `${start}-${end}`;
+        if(!slotMap.has(key)) slotMap.set(key, { start, end, label: label || `${start}-${end}` });
+    };
+
+    const tables = scope === 'current' && currentTableId
+        ? tableList.filter(t => t.id === currentTableId)
+        : tableList;
+
+    tables.forEach(table=>{
+        (table.timeList || []).forEach(item=>{
+            if(item.isSplit) return;
+            const parsed = typeof parsePeriodTimeRange === 'function' ? parsePeriodTimeRange(item.name) : null;
+            if(parsed) addSlot(parsed.start, parsed.end, item.name);
+        });
+    });
+
+    if(slotMap.size === 0){
+        DEFAULT_TIME.forEach(item=>{
+            if(item.isSplit) return;
+            const parsed = typeof parsePeriodTimeRange === 'function' ? parsePeriodTimeRange(item.name) : null;
+            if(parsed) addSlot(parsed.start, parsed.end, item.name);
+        });
+    }
+
+    return Array.from(slotMap.values()).sort((a, b)=> timeToMin(a.start) - timeToMin(b.start));
+}
+
+function findAssignmentsOverlappingSlot(assignments, target, type, weekIdx, slot){
+    return assignments.filter(a=>{
+        if(a.weekIdx !== weekIdx) return false;
+        if(type === 'teacher' && a.teacher !== target) return false;
+        if(type === 'room' && a.room !== target) return false;
+        return isTimeOverlap(a.start, a.end, slot.start, slot.end);
+    });
+}
+
+/** 展示用：长时段跨多行时只在第一个重叠行显示文案 */
+function findAssignmentsInSlot(assignments, target, type, weekIdx, slot, allSlots){
+    const slots = allSlots || [slot];
+    const slotKey = occSlotKey(slot);
+    return findAssignmentsOverlappingSlot(assignments, target, type, weekIdx, slot).filter(a=>{
+        return getPrimaryOccSlotKey(slots, a) === slotKey;
+    });
+}
+
+function renderOccupancyQuery(){
+    const gridWrap = document.getElementById('occGridWrap');
+    const summaryEl = document.getElementById('occSummary');
+    if(!gridWrap) return;
+
+    const type = occQueryType;
+    const target = type === 'teacher'
+        ? document.getElementById('occTeacherSelect')?.value
+        : document.getElementById('occRoomSelect')?.value;
+    const scope = getOccScope();
+
+    if(!target){
+        gridWrap.innerHTML = '<div class="occ-empty">' + (typeof t==='function'?t('msg.selectTeacherOrRoom'):('请选择'+(type==='teacher'?'教师':'教室')+'查看占用情况')) + '</div>';
+        if(summaryEl){
+            summaryEl.innerHTML = '';
+            summaryEl.style.display = 'none';
+        }
+        return;
+    }
+
+    const assignments = collectAllAssignments(scope);
+    const filtered = assignments.filter(a => type === 'teacher' ? a.teacher === target : a.room === target);
+    const slots = collectReferenceSlots(scope);
+
+    let busyCount = 0;
+    let freeCount = 0;
+    let html = '<table class="occ-grid"><thead><tr><th>'+(typeof t==='function'?t('occ.timeCol'):'时段')+'</th>';
+    getOccWeekLabels().forEach(w => { html += `<th>${w}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    slots.forEach(slot=>{
+        const slotLabel = (typeof displayPeriodLabel==='function'?displayPeriodLabel(slot.label):slot.label);
+        html += `<tr><td class="occ-time-col">${escCourseHtml(slotLabel)}</td>`;
+        for(let w = 0; w < weekCount; w++){
+            const overlaps = findAssignmentsOverlappingSlot(filtered, target, type, w, slot);
+            const hits = findAssignmentsInSlot(filtered, target, type, w, slot, slots);
+            if(overlaps.length > 0){
+                busyCount++;
+                if(hits.length > 0){
+                    const detail = hits.map(h => {
+                        const courseLabel = (typeof displayCourseName==='function'?displayCourseName(h.courseName):h.courseName);
+                        const classLabel = (typeof displayLocaleText==='function'?displayLocaleText(h.bindClass || h.cls):(h.bindClass || h.cls));
+                        const tableLabel = (typeof displayLocaleText==='function'?displayLocaleText(h.tableName):h.tableName);
+                        return `<div class="occ-busy-item"><strong>${escCourseHtml(courseLabel)}</strong><span>${escCourseHtml(classLabel)}</span><span class="occ-meta">${escCourseHtml(h.start)}-${escCourseHtml(h.end)} · ${escCourseHtml(tableLabel)}</span></div>`;
+                    }).join('');
+                    html += `<td class="occ-cell occ-busy">${detail}</td>`;
+                }else{
+                    const spanHint = (typeof t==='function'?t('occ.spanContinue'):'跨时段延续');
+                    html += `<td class="occ-cell occ-busy occ-busy-continue"><span class="occ-meta">${escCourseHtml(spanHint)}</span></td>`;
+                }
+            }else{
+                freeCount++;
+                html += `<td class="occ-cell occ-free"><span class="occ-free-tag">${typeof t==='function'?t('msg.free'):'空闲'}</span><span class="occ-meta">${escCourseHtml(slot.start)}-${escCourseHtml(slot.end)}</span></td>`;
+            }
+        }
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    gridWrap.innerHTML = html;
+
+    const tableSet = new Set(filtered.map(f => f.tableName));
+    const targetLabel = type === 'teacher'
+        ? (typeof t==='function'?t('msg.teacherLabel',{name:target}):`教师【${target}】`)
+        : (typeof t==='function'?t('msg.roomLabel',{name:target}):`教室【${target}】`);
+    const scopeLabel = scope === 'current'
+        ? (typeof t==='function'?t('occ.scopeCurrent'):'当前课表')
+        : (typeof t==='function'?t('occ.scopeAll'):'全部课表');
+    const busyLabel = (typeof t==='function'?t('msg.occupied',{n:busyCount}):`占用 ${busyCount} 格`);
+    const freeLabel = (typeof t==='function'?t('msg.freeSlots',{n:freeCount}):`空余 ${freeCount} 格`);
+    const entriesLabel = (typeof t==='function'
+        ? t('occ.summaryEntries',{entries:filtered.length,tables:tableSet.size})
+        : `共 ${filtered.length} 条排课 · ${tableSet.size} 张课表`);
+    if(summaryEl){
+        summaryEl.innerHTML = `
+            <span class="occ-stat"><strong>${targetLabel}</strong></span>
+            <span class="occ-stat">${scopeLabel}</span>
+            <span class="occ-stat occ-stat-busy">${busyLabel}</span>
+            <span class="occ-stat occ-stat-free">${freeLabel}</span>
+            <span class="occ-stat">${entriesLabel}</span>
+        `;
+        summaryEl.style.display = '';
+    }
+}
+
+function initOccupancyQueryPanel(){
+    const teacherSel = document.getElementById('occTeacherSelect');
+    const roomSel = document.getElementById('occRoomSelect');
+    if(!teacherSel || !roomSel) return;
+
+    occTeacherAll = JSON.parse(appGetItem('teacherList') || '[]');
+    occRoomAll = JSON.parse(appGetItem('roomList') || '[]');
+    filterOccTeacherOptions(true);
+    filterOccRoomOptions(true);
+    setOccQueryType(occQueryType);
+}
+
+function filterOccTeacherOptions(keepValue){
+    const sel = document.getElementById('occTeacherSelect');
+    const kw = (document.getElementById('occTeacherSearch')?.value || '').trim().toLowerCase();
+    const prev = keepValue ? sel?.value : '';
+    if(!sel) return;
+    const list = kw ? occTeacherAll.filter(t => t.toLowerCase().includes(kw)) : occTeacherAll;
+    let html = '<option value="">'+(typeof t==='function'?t('course.selectTeacher'):'选择教师')+'</option>';
+    list.forEach(t => { html += `<option value="${escCourseHtml(t)}">${escCourseHtml(t)}</option>`; });
+    sel.innerHTML = html;
+    if(prev && list.includes(prev)) sel.value = prev;
+}
+
+function filterOccRoomOptions(keepValue){
+    const sel = document.getElementById('occRoomSelect');
+    const kw = (document.getElementById('occRoomSearch')?.value || '').trim().toLowerCase();
+    const prev = keepValue ? sel?.value : '';
+    if(!sel) return;
+    const list = kw ? occRoomAll.filter(r => r.toLowerCase().includes(kw)) : occRoomAll;
+    let html = '<option value="">'+(typeof t==='function'?t('course.selectRoom'):'选择教室')+'</option>';
+    list.forEach(r => { html += `<option value="${escCourseHtml(r)}">${escCourseHtml(r)}</option>`; });
+    sel.innerHTML = html;
+    if(prev && list.includes(prev)) sel.value = prev;
+}
+
+function renderOccupancyFreeList(){
+    const listEl = document.getElementById('occFreeList');
+    if(!listEl) return;
+
+    const type = occQueryType;
+    const target = type === 'teacher'
+        ? document.getElementById('occTeacherSelect')?.value
+        : document.getElementById('occRoomSelect')?.value;
+    if(!target){
+        listEl.innerHTML = '';
+        return;
+    }
+
+    const scope = getOccScope();
+    const assignments = collectAllAssignments(scope).filter(a =>
+        type === 'teacher' ? a.teacher === target : a.room === target
+    );
+    const slots = collectReferenceSlots(scope);
+    const freeItems = [];
+
+    slots.forEach(slot=>{
+        for(let w = 0; w < weekCount; w++){
+            const overlaps = findAssignmentsOverlappingSlot(assignments, target, type, w, slot);
+            if(overlaps.length === 0){
+                freeItems.push(`${getOccWeekLabels()[w]} ${slot.start}-${slot.end}`);
+            }
+        }
+    });
+
+    if(freeItems.length === 0){
+        listEl.innerHTML = '<div class="occ-empty">'+(typeof t==='function'?t('msg.noFreeSlots'):'当前范围内无空余时段')+'</div>';
+        return;
+    }
+    listEl.innerHTML = '<div class="occ-free-chips">' + freeItems.map(t =>
+        `<span class="occ-free-chip">${escCourseHtml(t)}</span>`
+    ).join('') + '</div>';
+}
+
+function renderOccupancyPage(){
+    initOccupancyQueryPanel();
+    renderOccupancyQuery();
+    renderOccupancyFreeList();
+}
+
+// 查询变更时同步刷新列表
+function onOccQueryChange(){
+    renderOccupancyQuery();
+    renderOccupancyFreeList();
+}
