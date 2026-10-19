@@ -1,3 +1,84 @@
+
+function closeHeaderMoreMenu() {
+    document.querySelectorAll('.header-more-menu[open]').forEach(function(el) {
+        el.open = false;
+    });
+}
+function initHeaderMoreMenuDismiss() {
+    if (window.__headerMoreDismissBound) return;
+    window.__headerMoreDismissBound = true;
+    document.addEventListener('pointerdown', function(e) {
+        document.querySelectorAll('.header-more-menu[open]').forEach(function(menu) {
+            if (!menu.contains(e.target)) {
+                menu.open = false;
+            }
+        });
+    }, true);
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        closeHeaderMoreMenu();
+    });
+}
+
+function updateXiaoduolaMusicButton(isPlaying) {
+    const btn = document.getElementById('xiaoduolaMusicBtn');
+    if (!btn) return;
+    if (isPlaying) {
+        btn.textContent = typeof t === 'function' ? t('header.stopMusic') : '停止播放';
+        btn.title = typeof t === 'function' ? t('header.stopMusicTitle') : '停止播放音乐';
+    } else {
+        btn.textContent = typeof t === 'function' ? t('header.playStart') : '播放音乐';
+        btn.title = typeof t === 'function' ? t('header.playStartTitle') : '播放音乐';
+    }
+}
+
+function initXiaoduolaMusicButton() {
+    const el = document.getElementById('xiaoduolaAudio');
+    if (!el || el.__musicBtnBound) return;
+    el.__musicBtnBound = true;
+    el.addEventListener('ended', function() {
+        updateXiaoduolaMusicButton(false);
+    });
+    el.addEventListener('pause', function() {
+        if (el.currentTime === 0 || el.ended) updateXiaoduolaMusicButton(false);
+    });
+}
+
+function toggleXiaoduolaMusic() {
+    const el = document.getElementById('xiaoduolaAudio');
+    if (!el) return;
+    const playing = !el.paused && !el.ended;
+    if (playing) {
+        el.pause();
+        el.currentTime = 0;
+        updateXiaoduolaMusicButton(false);
+        return;
+    }
+    el.volume = 0.85;
+    el.currentTime = 0;
+    el.play().then(function() {
+        updateXiaoduolaMusicButton(true);
+    }).catch(function() {});
+}
+
+function stopXiaoduolaMusic() {
+    const el = document.getElementById('xiaoduolaAudio');
+    if (!el) return;
+    el.pause();
+    el.currentTime = 0;
+    updateXiaoduolaMusicButton(false);
+}
+
+function refreshXiaoduolaMusicButtonLabel() {
+    const el = document.getElementById('xiaoduolaAudio');
+    const playing = !!(el && !el.paused && !el.ended);
+    updateXiaoduolaMusicButton(playing);
+}
+
+function playXiaoduolaAudio() {
+    toggleXiaoduolaMusic();
+}
+
 // ========== 全局常量 默认初始化数据 ==========
 const DEFAULT_TIME = [
     {name:"第1节 08:20-10:20",isSplit:false},
@@ -101,6 +182,56 @@ const DEFAULT_COURSES = [
 ];
 
 const weekCount = 7;
+
+/** 删除课时行后，排课格子行号下移，避免错位或底部出现“幽灵行” */
+function reindexScheduleAfterTimeRowRemoved(schedule, removedIdx){
+    if(!schedule || typeof schedule !== 'object') return {};
+    const next = {};
+    Object.keys(schedule).forEach(function(key){
+        const parts = String(key).split('-');
+        if(parts.length !== 2) return;
+        const r = parseInt(parts[0], 10);
+        const w = parseInt(parts[1], 10);
+        if(isNaN(r) || isNaN(w)) return;
+        if(r === removedIdx) return;
+        const nr = r > removedIdx ? r - 1 : r;
+        next[nr + '-' + w] = schedule[key];
+    });
+    return next;
+}
+
+/** 去掉超出当前课时行数或非法坐标的排课数据（切换课表/改模版后残留） */
+function pruneScheduleDataForTimeList(schedule, timeList){
+    const maxRow = Array.isArray(timeList) ? timeList.length : 0;
+    const next = {};
+    let removed = 0;
+    if(!schedule || typeof schedule !== 'object') return { schedule: {}, removed: 0 };
+    Object.keys(schedule).forEach(function(key){
+        const parts = String(key).split('-');
+        if(parts.length !== 2){ removed++; return; }
+        const r = parseInt(parts[0], 10);
+        const w = parseInt(parts[1], 10);
+        if(isNaN(r) || isNaN(w) || r < 0 || w < 0 || w >= weekCount || r >= maxRow){
+            removed++;
+            return;
+        }
+        next[key] = schedule[key];
+    });
+    return { schedule: next, removed: removed };
+}
+
+function sanitizeCurrentTableScheduleData(){
+    if(!currentTableId) return 0;
+    const item = tableList.find(function(t){ return t.id === currentTableId; });
+    if(!item) return 0;
+    const timeList = item.timeList || [];
+    const result = pruneScheduleDataForTimeList(item.data, timeList);
+    if(result.removed > 0){
+        item.data = result.schedule;
+        saveTableList();
+    }
+    return result.removed;
+}
 
 const DEFAULT_APP_NAME = '西典学校排课系统';
 const DEFAULT_APP_SUBTITLE = '智能课表管理 · 多维度排课';
@@ -309,6 +440,7 @@ window.currentTableId = "";
 window.timeTemplateList = [];
 window.historyStack = [];
 window.historyIndex = -1;
+window.tableHistoryMap = window.tableHistoryMap || {};
 // 全局冲突缓存
 window.globalConflictList = [];
 
@@ -323,18 +455,22 @@ function initLocalStorage(){
     
     tableList = JSON.parse(appGetItem('multiTableData') || '[]');
     // 兼容旧版：给没有独立课时的旧课表，绑定默认课时
+    let prunedAny = false;
     tableList = tableList.map(table=>{
+        const timeList = table.timeList ? table.timeList : JSON.parse(JSON.stringify(DEFAULT_TIME));
+        const pr = pruneScheduleDataForTimeList(table.data || {}, timeList);
+        if(pr.removed > 0) prunedAny = true;
         return {
             id:table.id,
             name:table.name,
             bindClass:table.bindClass || "",
-            data:table.data || {},
-            // 旧课表兼容：没有独立课时则赋值默认课时
-            timeList: table.timeList ? table.timeList : JSON.parse(JSON.stringify(DEFAULT_TIME)),
+            data: pr.removed > 0 ? pr.schedule : (table.data || {}),
+            timeList: timeList,
             periodTemplateRef: table.periodTemplateRef || 'default',
             autoScheduleConfig: table.autoScheduleConfig || { constraints: [], settings: { onlyEmpty: true, checkGlobal: true, spreadWeek: true } }
         }
     });
+    if(prunedAny) saveTableList();
     
     // 保留当前选中的课表（局域网轮询会反复 init，不能每次都跳回第一张）
     if(tableList.length > 0){
@@ -669,7 +805,8 @@ function renderStorageStatus(){
 
     fill.style.width = `${Math.max(stats.usedPercent, 2)}%`;
     fill.className = 'tm-storage-fill' + (level === 'ok' ? '' : ` ${level}`);
-    text.className = 'tm-storage-text' + (level === 'ok' ? '' : ` ${level}`);
+    text.className = 'ui-hint-tooltip tm-storage-tooltip' + (level === 'ok' ? '' : ` ${level}`);
+    bar.className = 'tm-storage-trigger' + (level === 'ok' ? '' : ` storage-level-${level}`);
 
     let msg = (typeof t==='function'?t('storage.local'):'本地存储') + ` ${formatStorageSize(stats.usedBytes)} / ${formatStorageSize(stats.quotaBytes)}（${stats.usedPercent.toFixed(0)}%）`;
     if(typeof getAppStorageBackendLabel === 'function'){
@@ -727,30 +864,85 @@ function openStorageBackupHint(){
     }
 }
 
-// 历史撤销保存快照
-function saveSnapshot() {
-    if(!currentTableId) return;
+// 历史撤销：每张课表独立快照栈（非文件备份，配合 ↩ / ↪ 使用）
+function getTableHistory(tableId) {
+    if (!tableId) return { stack: [], index: -1 };
+    if (!tableHistoryMap[tableId]) {
+        tableHistoryMap[tableId] = { stack: [], index: -1 };
+    }
+    return tableHistoryMap[tableId];
+}
+
+function syncActiveHistoryPointers() {
+    const hist = getTableHistory(currentTableId);
+    historyStack = hist.stack;
+    historyIndex = hist.index;
+}
+
+function saveSnapshot(options) {
+    const opts = options || {};
+    const silent = opts.silent !== false;
+    const force = opts.force === true;
+    if (!currentTableId) {
+        if (!silent) alert(typeof t === "function" ? t("msg.noTable") : "暂无选中课表，请先新建或选择课表");
+        return false;
+    }
     const table = getCurrentTableInfo();
+    if (!table) return false;
+    const hist = getTableHistory(currentTableId);
     const data = JSON.parse(JSON.stringify({
         data: table.data,
         timeList: table.timeList
     }));
-    historyStack.splice(historyIndex + 1);
-    historyStack.push(data);
-    historyIndex = historyStack.length - 1;
-    if(historyStack.length > 30) historyStack.shift();
+    const currentTop = hist.index >= 0 ? hist.stack[hist.index] : null;
+    if (!force && currentTop && JSON.stringify(currentTop) === JSON.stringify(data)) {
+        syncActiveHistoryPointers();
+        if (!silent) {
+            alert("✅ 当前课表状态已在快照中。\n编辑后可点工具栏「↩」撤销；若要备份到文件请用下方「导出全部备份」。");
+        }
+        return true;
+    }
+    hist.stack.splice(hist.index + 1);
+    hist.stack.push(data);
+    hist.index = hist.stack.length - 1;
+    while (hist.stack.length > 30) {
+        hist.stack.shift();
+        hist.index = Math.max(0, hist.index - 1);
+    }
+    syncActiveHistoryPointers();
+    if (!silent) {
+        alert(`✅ 已保存编辑快照（第 ${hist.index + 1} 步 / 共 ${hist.stack.length} 步）\n请用工具栏「↩」撤销到本快照之前的状态。`);
+    }
+    return true;
+}
+
+function saveSnapshotManual() {
+    saveSnapshot({ silent: false, force: false });
+}
+
+function ensureTableHistoryBaseline() {
+    if (!currentTableId) return;
+    const hist = getTableHistory(currentTableId);
+    if (hist.stack.length === 0) {
+        saveSnapshot({ silent: true, force: true });
+    } else {
+        syncActiveHistoryPointers();
+    }
 }
 
 function undoStep() {
-    if(!currentTableId) return alert(typeof t==="function"?t("msg.noTable"):"暂无选中课表，请先新建或选择课表");
-    if (historyIndex <= 0) return alert(typeof t==="function"?t("msg.undoEnd"):"已经是最早一步，无法撤销");
-    historyIndex--;
-    const data = historyStack[historyIndex];
-    const tableItem = tableList.find(t=>t.id === currentTableId);
-    if(tableItem) {
+    if (!currentTableId) return alert(typeof t === "function" ? t("msg.noTable") : "暂无选中课表，请先新建或选择课表");
+    syncActiveHistoryPointers();
+    const hist = getTableHistory(currentTableId);
+    if (hist.index <= 0) return alert(typeof t === "function" ? t("msg.undoEnd") : "已经是最早一步，无法撤销");
+    hist.index--;
+    const data = hist.stack[hist.index];
+    const tableItem = tableList.find(t => t.id === currentTableId);
+    if (tableItem) {
         tableItem.data = data.data;
         tableItem.timeList = data.timeList;
     }
+    syncActiveHistoryPointers();
     saveTableList();
     renderTime();
     renderSchedule();
@@ -758,15 +950,20 @@ function undoStep() {
 }
 
 function redoStep() {
-    if(!currentTableId) return alert(typeof t==="function"?t("msg.noTable"):"暂无选中课表，请先新建或选择课表");
-    if (historyIndex >= historyStack.length - 1) return alert(typeof t==="function"?t("msg.redoEnd"):"已经是最新一步，无法重做");
-    historyIndex++;
-    const data = historyStack[historyIndex];
-    const tableItem = tableList.find(t=>t.id === currentTableId);
-    if(tableItem) {
+    if (!currentTableId) return alert(typeof t === "function" ? t("msg.noTable") : "暂无选中课表，请先新建或选择课表");
+    syncActiveHistoryPointers();
+    const hist = getTableHistory(currentTableId);
+    if (hist.index >= hist.stack.length - 1) {
+        return alert(typeof t === "function" ? t("msg.redoEnd") : "已经是最新一步，无法重做");
+    }
+    hist.index++;
+    const data = hist.stack[hist.index];
+    const tableItem = tableList.find(t => t.id === currentTableId);
+    if (tableItem) {
         tableItem.data = data.data;
         tableItem.timeList = data.timeList;
     }
+    syncActiveHistoryPointers();
     saveTableList();
     renderTime();
     renderSchedule();
@@ -803,6 +1000,8 @@ function saveTimeData(arr){
     const table = getCurrentTableInfo();
     if(!table) return;
     table.timeList = arr;
+    const pr = pruneScheduleDataForTimeList(table.data, arr);
+    if(pr.removed > 0) table.data = pr.schedule;
     saveTableList();
 }
 
@@ -1914,14 +2113,17 @@ function checkAllConflict() {
     const currentCount = currentConflictList.length;
 
     const conflictTipDom = document.getElementById('conflictTip');
+    const conflictDetailBar = document.getElementById('btnConflictDetailBar');
     if (totalGlobal === 0) {
-        conflictTipDom.style.color = '#28a745';
+        conflictTipDom.className = 'conflict-tip conflict-tip-ok';
         conflictTipDom.innerText = (typeof t==='function'?t('conflict.none'):'✅ 全局检测完成：教师、教室、学员时段无冲突');
+        if(conflictDetailBar) conflictDetailBar.style.display = 'none';
     } else {
-        conflictTipDom.style.color = '#dc3545';
+        conflictTipDom.className = 'conflict-tip conflict-tip-bad';
         conflictTipDom.innerText = (typeof t==='function'
             ? t('conflict.found',{total:totalGlobal,current:currentCount})
-            : `❌ 全局共${totalGlobal}处冲突，当前课表检测到${currentCount}处冲突，冲突单元格已标红，可点击【查看冲突详情】按钮查看`);
+            : `❌ 全局共${totalGlobal}处冲突，当前课表 ${currentCount} 处，冲突格已标红`);
+        if(conflictDetailBar) conflictDetailBar.style.display = '';
     }
 }
 
@@ -1929,9 +2131,9 @@ function checkAllConflict() {
 async function showConflictDetail() {
     if (!window.globalConflictList || window.globalConflictList.length === 0) {
         if(typeof showAppAlert === 'function'){
-            await showAppAlert(typeof t==='function'?t('conflict.noConflict'):'暂无排课冲突，请先执行全局冲突检测');
+            await showAppAlert(typeof t==='function'?t('conflict.noConflict'):'暂无排课冲突');
         }else{
-            alert(typeof t==='function'?t('conflict.noConflict'):'暂无排课冲突，请先执行全局冲突检测');
+            alert(typeof t==='function'?t('conflict.noConflict'):'暂无排课冲突');
         }
         return;
     }
