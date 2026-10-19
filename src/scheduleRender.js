@@ -5,6 +5,14 @@ function switchView(view){
     checkAllConflict();
 }
 
+function escapeScheduleHtml(text){
+    return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 function scheduleCellShowLabel(info){
     if(!info) return '';
     if(currentView === 'classView'){
@@ -12,6 +20,92 @@ function scheduleCellShowLabel(info){
     }
     if(currentView === 'teacherView') return info.teacher;
     return (typeof displayLocaleText === 'function' ? displayLocaleText(info.room) : info.room);
+}
+
+/** 按名称排序取色时，前若干门课也要色相分散：蓝→橙→绿→紫→红→黄…（避免前 6 门全是粉紫） */
+const SCHEDULE_COURSE_PALETTE = [
+    { h: 210, s: 62, l: 58 },
+    { h: 28,  s: 72, l: 54 },
+    { h: 136, s: 58, l: 52 },
+    { h: 278, s: 58, l: 58 },
+    { h: 352, s: 66, l: 56 },
+    { h: 50,  s: 70, l: 52 },
+    { h: 188, s: 58, l: 52 },
+    { h: 318, s: 62, l: 56 },
+    { h: 165, s: 54, l: 50 },
+    { h: 95,  s: 56, l: 54 },
+    { h: 245, s: 58, l: 58 },
+    { h: 305, s: 60, l: 56 }
+];
+let _scheduleCourseColorMap = new Map();
+function hashCourseNameForColor(name){
+    const s = String(name || '');
+    let h = 5381;
+    for(let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return h;
+}
+function rebuildScheduleCourseColorMap(schedule){
+    const names = new Set();
+    if(typeof getCourseData === 'function'){
+        try{
+            getCourseData().forEach(function(c){
+                if(c && c.name) names.add(c.name);
+            });
+        }catch(e){}
+    }
+    if(schedule && typeof schedule === 'object'){
+        Object.keys(schedule).forEach(function(key){
+            const cKey = schedule[key];
+            if(!cKey) return;
+            const info = getCourseInfo(cKey);
+            if(info && info.name) names.add(info.name);
+        });
+    }
+    const sorted = Array.from(names).sort(function(a, b){
+        return String(a).localeCompare(String(b), 'zh-CN');
+    });
+    const map = new Map();
+    sorted.forEach(function(name, i){
+        map.set(name, SCHEDULE_COURSE_PALETTE[i % SCHEDULE_COURSE_PALETTE.length]);
+    });
+    _scheduleCourseColorMap = map;
+}
+function scheduleCourseBackgroundColor(courseName){
+    if(!courseName) return '';
+    if(!_scheduleCourseColorMap.size && typeof getCurrentTableData === 'function'){
+        rebuildScheduleCourseColorMap(getCurrentTableData());
+    }
+    const light = typeof document !== 'undefined' && document.body && document.body.classList.contains('light-mode');
+    let slot = _scheduleCourseColorMap.get(courseName);
+    if(!slot){
+        const fb = SCHEDULE_COURSE_PALETTE[hashCourseNameForColor(courseName) % SCHEDULE_COURSE_PALETTE.length];
+        slot = fb;
+    }
+    const sat = light ? slot.s : Math.max(48, slot.s - 6);
+    const lit = light ? slot.l : Math.max(44, slot.l - 4);
+    const alpha = light ? 0.28 : 0.3;
+    return `hsla(${slot.h}, ${sat}%, ${lit}%, ${alpha})`;
+}
+function buildScheduleCellStyle(info, isConflict){
+    const parts = [];
+    if(info && info.name){
+        parts.push('--course-cell-bg:' + scheduleCourseBackgroundColor(info.name));
+    }
+    if(isConflict){
+        parts.push('color:red', 'font-weight:bold');
+    }
+    return parts.join(';');
+}
+function applyScheduleCellCourseTint(cell, cKey){
+    if(!cell) return;
+    const info = getCourseInfo(cKey);
+    if(info && info.name){
+        cell.style.setProperty('--course-cell-bg', scheduleCourseBackgroundColor(info.name));
+        cell.dataset.courseName = info.name;
+    }else{
+        cell.style.removeProperty('--course-cell-bg');
+        delete cell.dataset.courseName;
+    }
 }
 
 function buildScheduleCellInnerHtml(cKey, rowIdx, timeArr){
@@ -22,8 +116,10 @@ function buildScheduleCellInnerHtml(cKey, rowIdx, timeArr){
         ? parseCellAssignmentTimes(cKey, timeArr, rowIdx)
         : null;
     const timeStr = times ? `${times.start}–${times.end}` : '';
-    if(!timeStr) return `<span class="sched-cell-main">${label}</span>`;
-    return `<span class="sched-cell-main">${label}</span><span class="sched-cell-time">${timeStr}</span>`;
+    const safeLabel = escapeScheduleHtml(label);
+    const safeTime = escapeScheduleHtml(timeStr);
+    if(!timeStr) return `<span class="sched-cell-main">${safeLabel}</span>`;
+    return `<span class="sched-cell-main">${safeLabel}</span><span class="sched-cell-time">${safeTime}</span>`;
 }
 
 // ========== 课表表格渲染（读取当前选中课表的独立课时，冲突单元格红色加粗） ==========
@@ -33,7 +129,9 @@ function renderSchedule(){
         document.getElementById("conflictTip").innerText = "";
         return;
     }
+    if(typeof sanitizeCurrentTableScheduleData === 'function') sanitizeCurrentTableScheduleData();
     let schedule=getCurrentTableData();
+    rebuildScheduleCourseColorMap(schedule);
     let timeArr=getTimeData();
     let tbody=document.querySelector("#scheduleTable tbody");
     let html="";
@@ -48,7 +146,7 @@ function renderSchedule(){
     for(let tIdx=0;tIdx<timeArr.length;tIdx++){
         const timeItem = timeArr[tIdx];
         const timeStr = timeItem.name;
-        const timeDisplay = (typeof displayPeriodLabel==='function'?displayPeriodLabel(timeStr):timeStr);
+        const timeDisplay = escapeScheduleHtml(typeof displayPeriodLabel==='function'?displayPeriodLabel(timeStr):timeStr);
         const isSplitRow = timeItem.isSplit;
         if(isSplitRow){
             html += `<tr class="split-row">
@@ -60,16 +158,15 @@ function renderSchedule(){
                 let key=`${tIdx}-${w}`;
                 let cKey=schedule[key]||"";
                 let info=getCourseInfo(cKey);
-                let style = "";
-                if(currentConflictSet.has(key)){
-                    style = 'color:red;font-weight:bold;';
-                }
+                const isConflict = currentConflictSet.has(key);
+                let style = buildScheduleCellStyle(info, isConflict);
                 if(!info){
                     html+=`<td data-key="${key}" onclick="clickCell(this)" style="${style}"></td>`;
                     continue;
                 }
                 const cellInner = buildScheduleCellInnerHtml(cKey, tIdx, timeArr);
-                html+=`<td class="has-course" data-key="${key}" onclick="clickCell(this)" style="${style}">${cellInner}</td>`;
+                const courseAttr = info.name ? ` data-course-name="${String(info.name).replace(/"/g, '&quot;')}"` : '';
+                html+=`<td class="has-course" data-key="${key}"${courseAttr} onclick="clickCell(this)" style="${style}">${cellInner}</td>`;
             }
             html+="</tr>";
         }
@@ -103,9 +200,11 @@ function paintScheduleCell(cell, cKey){
     if(info){
         cell.innerHTML = buildScheduleCellInnerHtml(cKey, rowIdx, timeArr);
         cell.classList.add('has-course');
+        applyScheduleCellCourseTint(cell, cKey);
     }else{
         cell.innerHTML = '';
         cell.classList.remove('has-course');
+        applyScheduleCellCourseTint(cell, '');
     }
     cell.style.color = '';
     cell.style.fontWeight = '';
@@ -125,6 +224,7 @@ function clickCell(cell){
         delete schedule[key];
         saveCurrentTableData(schedule);
         saveSnapshot();
+        rebuildScheduleCourseColorMap(schedule);
         paintScheduleCell(cell, '');
         if(typeof scheduleConflictCheckSoon === 'function') scheduleConflictCheckSoon();
         else checkAllConflict();
@@ -164,6 +264,7 @@ function clickCell(cell){
     schedule[key] = saveVal;
     saveCurrentTableData(schedule);
     saveSnapshot();
+    rebuildScheduleCourseColorMap(schedule);
 
     // 只更新当前格，冲突检测延后合并执行，避免 200 张课表时连点卡顿
     paintScheduleCell(cell, saveVal);
