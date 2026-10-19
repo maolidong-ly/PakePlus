@@ -183,7 +183,17 @@ function addTime(){
 }
 function delTime(idx){
     if(!currentTableId) return alert("请先选中一张课表");
-    let arr=getTimeData();arr.splice(idx,1);saveTimeData(arr);renderTime();renderSchedule();checkAllConflict();
+    let schedule = getCurrentTableData();
+    if(typeof reindexScheduleAfterTimeRowRemoved === 'function'){
+        schedule = reindexScheduleAfterTimeRowRemoved(schedule, idx);
+        saveCurrentTableData(schedule);
+    }
+    let arr=getTimeData();
+    arr.splice(idx,1);
+    saveTimeData(arr);
+    renderTime();
+    renderSchedule();
+    checkAllConflict();
 }
 function editTime(idx,oldVal,oldIsSplit,td){
     if(!currentTableId) return alert("请先选中一张课表");
@@ -909,11 +919,12 @@ function renderTableTags(){
 
 function switchTable(tid){
     currentTableId = tid;
+    if(typeof sanitizeCurrentTableScheduleData === 'function') sanitizeCurrentTableScheduleData();
     renderTableTags();
     renderTime();
     renderSchedule();
     checkAllConflict();
-    saveSnapshot();
+    if (typeof ensureTableHistoryBaseline === 'function') ensureTableHistoryBaseline();
     renderCourseSelects();
     lastSelectCourseValue = "";
     // 切换课表保留起止时间选择，便于跨课表用同一套手动时间排课
@@ -1041,8 +1052,8 @@ function buildCurrentScheduleExportHtml(currTable){
 
     let html = `<html><meta charset="utf-8"><style>${EXPORT_EXCEL_STYLE}</style><body style="font-family:微软雅黑,宋体,Arial,sans-serif;margin:0;padding:0;background:#fff;">`;
     html += `<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;width:830px;">`;
-    html += `<tr><td colspan="8" align="center" style="font-size:22px;font-weight:bold;padding:6px 0;background:#4472C4;color:#fff;border:#000 solid 1px;">${tableTitle}</td></tr>`;
-    html += `<tr style="font-size:11px;font-weight:bold;background:#D9D9D9;text-align:center;height:26px;">
+    html += `<tr><td colspan="8" align="center" style="font-size:22px;font-weight:bold;padding:6px 0;background:${EXPORT_TABLE_CHROME.titleBg};color:#fff;border:#000 solid 1px;">${tableTitle}</td></tr>`;
+    html += `<tr style="font-size:11px;font-weight:bold;background:${EXPORT_TABLE_CHROME.headerBg};text-align:center;height:26px;">
         <td class="time-col" style="border:#000 solid 1px;">${tt('export.corner')}</td>`;
     weekList.forEach(w => {
         html += `<td width="100px" style="border:#000 solid 1px;">${w}</td>`;
@@ -1053,7 +1064,7 @@ function buildCurrentScheduleExportHtml(currTable){
         const timeNameRaw = timeList[rowIdx]?.name || tt('export.periodFallback', { n: rowIdx + 1 });
         const timeName = dispPeriod(timeNameRaw);
         const isRestRow = /午饭|晚饭/.test(String(timeNameRaw)) || timeList[rowIdx]?.isSplit;
-        const bg = isRestRow ? "#F2F2F2" : "#fff";
+        const bg = isRestRow ? EXPORT_TABLE_CHROME.splitBg : "#fff";
         const rowHeight = isRestRow ? "height:36px;" : "min-height:68px;height:auto;";
 
         if(isRestRow){
@@ -1078,7 +1089,7 @@ function buildCurrentScheduleExportHtml(currTable){
                     const content = `<span style="font-size:11px;font-weight:600;">${course}</span><br><span style="font-size:9px">${tt('export.teacher',{name:teacher})}<br>${tt('export.room',{name:room})}<br>${start}-${end}</span>`;
                     html += `<td style="border:#000 solid 1px;background:${cc.bg};color:${cc.fg};padding:2px;">${content}</td>`;
                 }else{
-                    html += `<td style="border:#000 solid 1px;background:#F8F8F8;padding:2px;"></td>`;
+                    html += `<td style="border:#000 solid 1px;background:${EXPORT_TABLE_CHROME.emptyBg};padding:2px;"></td>`;
                 }
             }
             html += `</tr>`;
@@ -1327,6 +1338,14 @@ function getTableList() {
 }
 
 // ===================== 跨课表合并导出（按实际时段对齐） =====================
+/** 导出表头/空单元格等固定底色（略淡，打印与图片更柔和） */
+const EXPORT_TABLE_CHROME = {
+    titleBg: '#6B96D6',
+    headerBg: '#E6E6E6',
+    splitBg: '#F4F4F4',
+    emptyBg: '#FAFAFA'
+};
+
 /** 导出用学科色（白底可读：中等饱和度背景 + 深色字） */
 const EXPORT_COURSE_COLORS = [
     { bg: '#FFE082', fg: '#4e342e' },
@@ -1366,12 +1385,35 @@ function hashExportCourseName(name){
     return Math.abs(h);
 }
 
+/** 导出背景向白色混合，Excel / 图片共用 */
+function softenExportHex(hex, mixWhite){
+    if(!hex || typeof hex !== 'string') return hex;
+    const amount = mixWhite == null ? 0.36 : mixWhite;
+    let h = hex.trim();
+    if(h.startsWith('#')) h = h.slice(1);
+    if(h.length === 3) h = h.split('').map(function(c){ return c + c; }).join('');
+    if(h.length !== 6 || !/^[0-9a-fA-F]+$/.test(h)) return hex;
+    const mix = function(c){
+        return Math.min(255, Math.round(c + (255 - c) * amount));
+    };
+    const r = mix(parseInt(h.slice(0, 2), 16));
+    const g = mix(parseInt(h.slice(2, 4), 16));
+    const b = mix(parseInt(h.slice(4, 6), 16));
+    return '#' + [r, g, b].map(function(x){
+        return x.toString(16).padStart(2, '0');
+    }).join('');
+}
+
 function getExportCourseColor(courseName){
     if(!courseName) return { bg: '#FFFFFF', fg: '#1a1a1a' };
     const key = String(courseName).trim();
-    if(EXPORT_COURSE_COLOR_OVERRIDES[key]) return EXPORT_COURSE_COLOR_OVERRIDES[key];
-    const idx = hashExportCourseName(key) % EXPORT_COURSE_COLORS.length;
-    return EXPORT_COURSE_COLORS[idx];
+    let base;
+    if(EXPORT_COURSE_COLOR_OVERRIDES[key]) base = EXPORT_COURSE_COLOR_OVERRIDES[key];
+    else {
+        const idx = hashExportCourseName(key) % EXPORT_COURSE_COLORS.length;
+        base = EXPORT_COURSE_COLORS[idx];
+    }
+    return { bg: softenExportHex(base.bg), fg: base.fg };
 }
 
 const EXPORT_EXCEL_STYLE = `
@@ -1534,15 +1576,15 @@ function buildResourceExportHtml(title, timeRows, assignments, formatHit){
     const weekKeys = ['export.week.mon','export.week.tue','export.week.wed','export.week.thu','export.week.fri','export.week.sat','export.week.sun'];
 
     let html = `<html><meta charset="utf-8"><style>${EXPORT_EXCEL_STYLE}</style><body><table>`;
-    html += `<tr><td colspan="8" style="font-size:22px;font-weight:bold;background:#4472C4;color:#fff;height:45px;">${title}</td></tr>`;
-    html += `<tr style="font-size:11px;font-weight:bold;background:#D9D9D9;height:30px;">
+    html += `<tr><td colspan="8" style="font-size:22px;font-weight:bold;background:${EXPORT_TABLE_CHROME.titleBg};color:#fff;height:45px;">${title}</td></tr>`;
+    html += `<tr style="font-size:11px;font-weight:bold;background:${EXPORT_TABLE_CHROME.headerBg};height:30px;">
         <td class="time-col">${tt('export.corner')}</td>`;
     weekKeys.forEach(k => { html += `<td width="100px">${tt(k)}</td>`; });
     html += `</tr>`;
 
     timeRows.forEach(row=>{
         if(row.type === 'split'){
-            html += `<tr><td colspan="8" style="font-size:11px;font-weight:bold;background:#F2F2F2;height:25px;">${dispPeriod(row.label)}</td></tr>`;
+            html += `<tr><td colspan="8" style="font-size:11px;font-weight:bold;background:${EXPORT_TABLE_CHROME.splitBg};height:25px;">${dispPeriod(row.label)}</td></tr>`;
             return;
         }
         html += `<tr style="min-height:55px;height:auto;font-size:10px;"><td class="time-col">${dispPeriod(row.label)}</td>`;
@@ -1564,7 +1606,7 @@ function buildResourceExportHtml(title, timeRows, assignments, formatHit){
             }
             const cellStyle = hits.length
                 ? ` style="background:${cellBg};color:${cellFg};padding:2px;"`
-                : ' style="background:#F8F8F8;"';
+                : ` style="background:${EXPORT_TABLE_CHROME.emptyBg};"`;
             html += `<td${cellStyle}>${cellContent}</td>`;
         }
         html += `</tr>`;
