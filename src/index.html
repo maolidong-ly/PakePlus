@@ -52,18 +52,18 @@
     --dark-shadow: 0 0 0 1px rgba(34,240,255,0.12), 0 0 24px rgba(34,240,255,0.08), inset 0 0 40px rgba(34,240,255,0.03);
     --dark-glow: 0 0 32px rgba(34, 240, 255, 0.25);
 
-    --light-bg-body: #e8eef8;
-    --light-bg-panel: rgba(255, 255, 255, 0.9);
+    --light-bg-body: #f5f5f7;
+    --light-bg-panel: #ffffff;
     --light-bg-elevated: #ffffff;
-    --light-text-color: #0a1a2e;
-    --light-text-muted: #3d5a73;
+    --light-text-color: #1d1d1f;
+    --light-text-muted: #6e6e73;
     --light-primary: #0891b2;
     --light-primary-light: #06b6d4;
     --light-accent: #0284c7;
-    --light-border: rgba(6, 182, 212, 0.35);
-    --light-border-hover: rgba(6, 182, 212, 0.7);
-    --light-shadow: 0 0 0 1px rgba(6,182,212,0.15), 0 8px 28px rgba(8, 40, 80, 0.08);
-    --light-glow: 0 0 24px rgba(6, 182, 212, 0.15);
+    --light-border: rgba(0, 0, 0, 0.09);
+    --light-border-hover: rgba(0, 0, 0, 0.15);
+    --light-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 6px 20px rgba(0,0,0,0.05);
+    --light-glow: none;
 
     --special-padding: 10px 20px;
     --special-font-size: 14px;
@@ -103,10 +103,8 @@ body.light-mode{
     --border-hover: var(--light-border-hover);
     --shadow: var(--light-shadow);
     --glow: var(--light-glow);
-    background-color: #e8eef8;
-    background-image:
-        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(6, 182, 212, 0.18), transparent 55%),
-        linear-gradient(180deg, #f0f6ff 0%, #e2eaf6 100%);
+    background-color: #f5f5f7;
+    background-image: linear-gradient(180deg, #fafafa 0%, #ececee 100%);
     background-attachment: fixed;
 }
 body:not(.light-mode){
@@ -250,6 +248,112 @@ body.light-mode .app-header{
     align-items: center;
     gap: 10px;
     flex-shrink: 0;
+}
+.app-header:has(.header-more-menu[open]){
+    clip-path: none !important;
+    overflow: visible !important;
+    z-index: 60;
+}
+.header-more-menu{
+    position: relative;
+    flex-shrink: 0;
+}
+.header-more-menu summary.header-more-trigger{
+    display: inline-flex !important;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    font-family: var(--font-ui);
+    transition: var(--transition);
+}
+.header-more-menu summary.header-more-trigger::-webkit-details-marker{display:none;}
+.header-more-menu summary.header-more-trigger::after{
+    content: '▾';
+    margin-left: 6px;
+    font-size: 11px;
+    opacity: 0.72;
+    line-height: 1;
+}
+.header-more-menu[open] summary.header-more-trigger{
+    color: var(--primary-light);
+    border-color: var(--border-hover);
+}
+.header-more-menu[open] summary.header-more-trigger::after{
+    transform: translateY(-1px);
+    opacity: 1;
+}
+.header-more-menu summary.header-more-trigger:hover{
+    border-color: var(--border-hover);
+    filter: brightness(1.05);
+}
+.header-more-panel{
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 168px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: #ffffff;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18), var(--shadow);
+    z-index: 200;
+    box-sizing: border-box;
+}
+body.light-mode .header-more-panel{background: #ffffff;}
+body:not(.light-mode) .header-more-panel{
+    background-color: #161e32;
+    border-color: rgba(34, 240, 255, 0.28);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+.header-more-panel .header-more-item{
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    min-height: 40px !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1.3 !important;
+    border-radius: 8px !important;
+    clip-path: none !important;
+    margin: 0 !important;
+    text-align: left;
+    text-shadow: none !important;
+    transform: none !important;
+    filter: none !important;
+    font-family: var(--font-ui) !important;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.header-more-panel .header-more-item:hover{
+    transform: none !important;
+    filter: none !important;
+}
+.header-more-panel .header-more-logout{
+    color: #f87171 !important;
+    border: 1px solid rgba(248, 113, 113, 0.42) !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+}
+.header-more-panel .header-more-logout:hover{
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.14) !important;
+    border-color: rgba(248, 113, 113, 0.55) !important;
+}
+body.light-mode .header-more-panel .header-more-logout{
+    color: #dc2626 !important;
+    border-color: rgba(220, 38, 38, 0.35) !important;
+    background: #fef2f2 !important;
+}
+body.light-mode .header-more-panel .header-more-logout:hover{
+    color: #b91c1c !important;
+    background: #fee2e2 !important;
 }
 .btn-exit{
     padding: 9px 18px;
@@ -574,8 +678,8 @@ body.light-mode .panel-card{
 }
 /* ── 导航标签 ── */
 .nav-card{
-    padding: 6px;
-    margin-bottom: 20px;
+    padding: 4px;
+    margin-bottom: 10px;
     display: flex;
     flex-wrap: nowrap;
     gap: 4px;
@@ -596,7 +700,7 @@ body.light-mode .panel-card{
     background: rgba(4, 20, 48, 0.55);
     border-radius: 0;
     clip-path: var(--clip-btn);
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 700;
     cursor: pointer;
     color: var(--text-muted);
@@ -807,9 +911,12 @@ body.light-mode .schedule-dock{
     grid-column: span 1;
 }
 .dock-label{
-    font-size: 12px;
+    display: block;
+    width: 100%;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-muted);
+    text-align: center;
 }
 .dock-field select{
     width: 100%;
@@ -825,6 +932,18 @@ body.light-mode .schedule-dock{
 .dock-field select:focus{
     border-color: var(--primary-light);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+.schedule-dock .dock-field select,
+.schedule-dock-inline .dock-field select{
+    text-align: center;
+    text-align-last: center;
+    padding-left: 26px;
+    padding-right: 26px;
+}
+.schedule-dock .dock-field select option,
+.schedule-dock-inline .dock-field select option{
+    text-align: center;
+    text-align-last: center;
 }
 @media (max-width: 960px){
     .dock-grid{
@@ -916,11 +1035,11 @@ body.light-mode .schedule-dock{
 }
 /* ── 课表管理（合并顶栏） ── */
 .table-manager{
-    margin-bottom: 16px;
-    padding: 14px 18px;
+    margin-bottom: 10px;
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 .tm-row{
     display: flex;
@@ -937,7 +1056,9 @@ body.light-mode .schedule-dock{
     min-width: 56px;
 }
 .tm-row input,
-.tm-row select{
+.tm-row select,
+.tm-toolbar-start input,
+.tm-toolbar-start select{
     padding: 8px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -948,7 +1069,9 @@ body.light-mode .schedule-dock{
     outline: none;
 }
 .tm-row input:focus,
-.tm-row select:focus{
+.tm-row select:focus,
+.tm-toolbar-start input:focus,
+.tm-toolbar-start select:focus{
     border-color: var(--primary-light);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
 }
@@ -1013,6 +1136,163 @@ body.light-mode .schedule-dock{
     max-width: 280px;
     font-weight: 600;
 }
+
+/* ── 课表管理工具栏（单行对齐） ── */
+.table-manager{
+    gap: 0;
+}
+.tm-toolbar{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    flex-wrap: wrap;
+}
+.tm-toolbar-start,
+.tm-toolbar-end{
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+}
+.tm-toolbar-start{
+    flex: 1 1 280px;
+    gap: 10px;
+    min-width: 0;
+}
+.tm-toolbar-end{
+    flex: 0 1 auto;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+/* 说明 / 存储 / 删除当前课表：仅排课页显示 */
+#tableManagerBar.table-manager:not(.tm-merged-schedule) .tm-toolbar-end{
+    display: none !important;
+}
+@media (min-width: 721px){
+    .tm-toolbar-end::before{
+        content: "";
+        width: 1px;
+        height: 22px;
+        background: var(--border);
+        margin-right: 6px;
+        flex-shrink: 0;
+    }
+    body.light-mode .tm-toolbar-end::before{
+        background: rgba(0, 0, 0, 0.08);
+    }
+}
+.table-manager .tm-label{
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-color);
+    letter-spacing: 0.02em;
+}
+.table-manager .tm-search-wrap{
+    width: 148px;
+    max-width: 148px;
+    flex: 0 0 148px;
+}
+.table-manager .tm-table-select{
+    flex: 0 1 auto;
+    min-width: 132px;
+    max-width: min(220px, 36vw);
+}
+.table-manager .tm-count-hint{
+    flex: 0 0 auto;
+    padding: 0 2px;
+    font-size: 12px;
+    line-height: 1;
+}
+.table-manager .tm-toolbar-start input,
+.table-manager .tm-toolbar-start select,
+.table-manager .tm-delete-btn,
+.table-manager .ui-hint-bubble-storage .tm-storage-trigger{
+    height: 34px;
+    box-sizing: border-box;
+}
+.table-manager .tm-toolbar-start input,
+.table-manager .tm-toolbar-start select{
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 32px;
+}
+.table-manager .tm-hint-bubble,
+.table-manager .ui-hint-bubble-storage{
+    margin: 0;
+    flex-shrink: 0;
+}
+.table-manager .ui-hint-bubble-storage .tm-storage-trigger{
+    padding: 0 10px;
+    border-radius: 8px;
+}
+.table-manager .tm-delete-btn{
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: none;
+    transform: none;
+}
+.table-manager .tm-delete-btn::before{
+    display: none;
+}
+.table-manager .tm-delete-btn:hover{
+    transform: none;
+    filter: none;
+}
+body.light-mode .table-manager .tm-delete-btn{
+    background: #ffffff;
+    color: #dc2626;
+    border: 1px solid rgba(220, 38, 38, 0.38);
+    box-shadow: none;
+}
+body.light-mode .table-manager .tm-delete-btn:hover{
+    background: #fef2f2;
+    border-color: rgba(220, 38, 38, 0.55);
+}
+body:not(.light-mode) .table-manager .tm-delete-btn{
+    background: rgba(220, 38, 38, 0.92);
+    border: 1px solid rgba(248, 113, 113, 0.45);
+    box-shadow: none;
+}
+@media (max-width: 720px){
+    .tm-toolbar-end{
+        width: 100%;
+        justify-content: flex-start;
+        padding-top: 4px;
+        border-top: 1px solid var(--border);
+        margin-left: 0;
+    }
+    body.light-mode .tm-toolbar-end{
+        border-top-color: rgba(0, 0, 0, 0.06);
+    }
+}
+.tm-meta-row{
+    display: flex;
+    align-items: center;
+    gap: 10px 16px;
+    flex-wrap: wrap;
+}
+.tm-meta-row .tm-hint{
+    margin: 0;
+    flex: 1 1 280px;
+}
+.tm-meta-row .tm-storage{
+    flex: 0 1 auto;
+    min-width: 200px;
+    max-width: 100%;
+}
+.tm-meta-row .tm-storage-track{
+    flex: 0 0 72px;
+    min-width: 72px;
+    max-width: 96px;
+}
+.tm-meta-row .tm-storage-text{
+    font-size: 11px;
+}
 .tm-storage{
     display: flex;
     align-items: center;
@@ -1051,7 +1331,25 @@ body.light-mode .schedule-dock{
 .tm-storage-text.danger{color:#ef4444;font-weight:600;}
 body.light-mode .tm-storage-text.warn{color:#b45309;}
 body.light-mode .tm-storage-text.danger{color:#dc2626;}
-/* ── 排课：精简操作条 ── */
+/* ── 排课：工具 + 设置合并为一块 ── */
+.schedule-workspace.panel-card{
+    clip-path: none !important;
+    overflow: visible !important;
+    padding: 10px 14px 12px;
+    margin-bottom: 8px;
+    position: relative;
+}
+.schedule-workspace.panel-card:has(.sab-more[open]){
+    z-index: 80;
+}
+.schedule-dock-inline{
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+}
+.schedule-dock-inline .dock-grid{
+    gap: 8px 10px;
+}
 .schedule-action-bar{
     display: flex;
     align-items: center;
@@ -1108,9 +1406,30 @@ body.light-mode .sab-btn-primary{
     background: rgba(13, 148, 136, 0.1);
     border-color: rgba(13, 148, 136, 0.3);
 }
+.sab-btn-conflict{
+    background: rgba(220, 38, 38, 0.12);
+    border-color: rgba(220, 38, 38, 0.35);
+    color: #fca5a5;
+}
+body.light-mode .sab-btn-conflict{
+    color: #b91c1c;
+    background: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.28);
+}
 .sab-btn-icon{
     padding: 7px 11px;
     min-width: 36px;
+}
+/* 与四字工具按钮同宽，文案居中（如「打印」） */
+.sab-btn-w4{
+    min-width: 5.25em;
+    padding-left: 12px;
+    padding-right: 12px;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }
 .sab-sep{
     width: 1px;
@@ -1131,9 +1450,17 @@ body.light-mode .sab-btn-primary{
     user-select: none;
     white-space: nowrap;
 }
+.schedule-workspace .sab-more > summary,
+.schedule-action-top .sab-more > summary{
+    color: #f87171 !important;
+    font-weight: 600 !important;
+}
 .sab-more[open] summary{
-    color: var(--primary-light);
     border-color: var(--border-hover);
+}
+.schedule-workspace .sab-more[open] > summary,
+.schedule-action-top .sab-more[open] > summary{
+    color: #ef4444 !important;
 }
 .sab-more summary::-webkit-details-marker{display:none;}
 .sab-more{
@@ -1160,6 +1487,7 @@ body.light-mode .sab-more-body{
 }
 /* 深色模式：下拉菜单与工具栏实心不透明，避免透出下方课表 */
 body:not(.light-mode) .schedule-action-bar.panel-card,
+body:not(.light-mode) .schedule-workspace.panel-card,
 body:not(.light-mode) .schedule-dock.panel-card{
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -1240,8 +1568,8 @@ body.light-mode .btn-ghost{
 /* 导航短标签 */
 .tab-top button{
     flex: 1;
-    padding: 10px 6px;
-    font-size: 13px;
+    padding: 11px 6px;
+    font-size: 15px;
     text-align: center;
 }
 /* 折叠面板默认更低调 */
@@ -1485,6 +1813,21 @@ body.light-mode .schedule-dock .tab-style-btn:hover{
 }
 /* ── 备份折叠 ── */
 .backup-collapse{margin:10px 0 14px;}
+.form-row.form-row-with-backup{
+    flex-wrap:wrap;
+    align-items:center;
+}
+.form-row.form-row-with-backup > .backup-collapse{
+    margin:0 0 0 auto;
+    flex:0 0 auto;
+}
+.form-row.form-row-with-backup > .backup-collapse[open]{
+    flex-basis:100%;
+    width:100%;
+}
+.form-row.form-row-with-backup > .backup-collapse[open] .backup-panel-content{
+    margin-top:10px;
+}
 .backup-collapse summary{
     cursor:pointer;
     padding:10px 16px;
@@ -1663,10 +2006,25 @@ table .del:hover{
 #scheduleTable{
     border-radius: var(--radius-lg);
     box-shadow: var(--glow), var(--shadow);
+    table-layout: fixed;
+    width: 100%;
 }
 #scheduleTable th{
-    padding:16px 12px;
-    font-size:16px;
+    padding:14px 12px;
+    font-size:17px;
+}
+#scheduleTable th:first-child,
+#scheduleTable td:first-child{
+    width: 178px;
+    max-width: 178px;
+    min-width: 172px;
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+    line-height: 1.28;
+    white-space: normal;
+    word-break: keep-all;
+    text-align: center;
+    vertical-align: middle;
 }
 #scheduleTable td{
     min-height:52px;
@@ -1679,6 +2037,19 @@ table .del:hover{
 }
 #scheduleTable td.has-course{
     padding:10px 8px;
+}
+body.light-mode #scheduleTable td.has-course{
+    background: var(--course-cell-bg, linear-gradient(180deg, #fff 0%, #f4f8fc 100%)) !important;
+}
+body:not(.light-mode) #scheduleTable td.has-course{
+    background: var(--course-cell-bg, linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0.12) 100%)) !important;
+}
+body.light-mode #scheduleTable td.has-course:hover{
+    background: var(--course-cell-bg, linear-gradient(180deg, #fff 0%, #f4f8fc 100%)) !important;
+    filter: brightness(0.98);
+}
+body:not(.light-mode) #scheduleTable td.has-course:hover{
+    background: var(--course-cell-bg, linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0.12) 100%)) !important;
 }
 #scheduleTable .sched-cell-main{
     display:block;
@@ -1700,10 +2071,8 @@ table .del:hover{
     opacity:0.85;
 }
 #scheduleTable td:first-child{
-    font-size:15px;
     font-weight:600;
     color:var(--text-color);
-    white-space:nowrap;
 }
 #scheduleTable td:hover{
     background:rgba(45,212,191,0.1);
@@ -1878,20 +2247,38 @@ body.light-mode .exit-modal-warn{
     border-color:#dc2626;
     color:#fff;
 }
-#conflictTip{
-    margin:12px 0 16px;
-    color:#fca5a5;
-    font-weight:500;
-    font-size:14px;
-    padding:12px 16px;
-    background:rgba(220,38,38,0.1);
-    border-radius: var(--radius-sm);
-    border:1px solid rgba(220,38,38,0.2);
-    backdrop-filter:blur(8px);
+.conflict-tip:empty{
+    display: none;
+    margin: 0;
+    padding: 0;
+    border: none;
 }
-body.light-mode #conflictTip{
-    color:#dc2626;
-    background:rgba(220,38,38,0.06);
+.conflict-tip{
+    margin: 0 0 8px;
+    font-weight: 500;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    line-height: 1.45;
+}
+.conflict-tip-bad{
+    color: #fca5a5;
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+}
+body.light-mode .conflict-tip-bad{
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.06);
+}
+.conflict-tip-ok{
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.22);
+}
+body.light-mode .conflict-tip-ok{
+    color: #15803d;
+    background: rgba(34, 197, 94, 0.07);
+    border-color: rgba(34, 197, 94, 0.2);
 }
 /* 自动排课面板 */
 .auto-schedule-panel{margin:12px 0;}
@@ -2758,16 +3145,29 @@ body.light-mode .nav-card{
     background: linear-gradient(180deg, rgba(34,240,255,0.18), rgba(34,240,255,0.04)) !important;
     color: var(--neon-cyan) !important;
     font-weight: 700 !important;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    font-size: 12px !important;
+    letter-spacing: 0.06em;
+    text-transform: none;
+    font-size: 17px !important;
     text-shadow: 0 0 10px rgba(34,240,255,0.45);
     border-bottom: 1px solid rgba(34,240,255,0.35) !important;
+}
+#scheduleTable thead th:first-child{
+    font-size: 16px !important;
+}
+#scheduleTable thead th{
+    font-size: 17px !important;
 }
 body.light-mode #scheduleTable th{
     background: linear-gradient(180deg, rgba(6,182,212,0.15), rgba(6,182,212,0.04)) !important;
     color: #0891b2 !important;
     text-shadow: none;
+}
+body.light-mode #scheduleTable thead th{
+    font-size: 18px !important;
+    font-weight: 700 !important;
+}
+body.light-mode #scheduleTable thead th:first-child{
+    font-size: 16px !important;
 }
 #scheduleTable td:hover{
     background: rgba(34,240,255,0.1) !important;
@@ -2818,9 +3218,10 @@ body.light-mode .sab-btn-primary:hover{
 }
 body.light-mode .sab-more summary{
     background: #fff !important;
-    border: 1px solid rgba(8, 60, 90, 0.18) !important;
-    color: #1e3a4c !important;
+    border: 1px solid rgba(220, 38, 38, 0.28) !important;
+    color: #dc2626 !important;
     border-radius: 8px !important;
+    font-weight: 600;
 }
 body.light-mode .btn-ghost{
     background: #ffffff !important;
@@ -3540,6 +3941,7 @@ html.os-windows body:not(.light-mode) .status-select,
 html.os-windows body:not(.light-mode) .form-row select,
 html.os-windows body:not(.light-mode) .dock-field select,
 html.os-windows body:not(.light-mode) .tm-row select,
+html.os-windows body:not(.light-mode) .tm-toolbar-start select,
 html.os-windows body:not(.light-mode) .tools-export-item select,
 html.os-windows body:not(.light-mode) .schedule-dock select,
 html.os-windows body:not(.light-mode) .auto-constraint-form select{
@@ -3562,6 +3964,7 @@ html.os-windows body.light-mode .status-select,
 html.os-windows body.light-mode .form-row select,
 html.os-windows body.light-mode .dock-field select,
 html.os-windows body.light-mode .tm-row select,
+html.os-windows body.light-mode .tm-toolbar-start select,
 html.os-windows body.light-mode .tools-export-item select,
 html.os-windows body.light-mode .schedule-dock select{
     background: #ffffff !important;
@@ -3642,6 +4045,48 @@ body:not(.light-mode) .sab-sep{
     background: rgba(34,240,255,0.12) !important;
     opacity: 0.7;
 }
+/* 排课操作条「更多」红色强调 */
+.schedule-workspace .sab-more > summary,
+.schedule-action-top .sab-more > summary{
+    color: #f87171 !important;
+    font-weight: 600 !important;
+}
+.schedule-workspace .sab-more[open] > summary,
+.schedule-action-top .sab-more[open] > summary{
+    color: #ef4444 !important;
+}
+body.light-mode .schedule-workspace .sab-more > summary,
+body.light-mode .schedule-action-top .sab-more > summary,
+body.light-mode .schedule-workspace .sab-more[open] > summary,
+body.light-mode .schedule-action-top .sab-more[open] > summary{
+    color: #dc2626 !important;
+}
+
+/* 排课页底部「备份与恢复」红色强调 */
+#scheduleBackupPanel > summary{
+    color: #f87171 !important;
+    font-weight: 600;
+}
+#scheduleBackupPanel[open] > summary{
+    color: #ef4444 !important;
+}
+#scheduleBackupPanel > summary::before{
+    color: #f87171 !important;
+}
+#scheduleBackupPanel > summary:hover{
+    color: #ef4444 !important;
+    border-color: rgba(248, 113, 113, 0.45);
+}
+body.light-mode #scheduleBackupPanel > summary,
+body.light-mode #scheduleBackupPanel[open] > summary,
+body.light-mode #scheduleBackupPanel > summary:hover{
+    color: #dc2626 !important;
+}
+body.light-mode #scheduleBackupPanel > summary::before{
+    color: #dc2626 !important;
+}
+body.light-mode .schedule-action-bar .sab-btn,
+body.light-mode .schedule-action-bar .btn-ghost,
 body.light-mode .schedule-action-bar .sab-btn,
 body.light-mode .schedule-action-bar .btn-ghost,
 body.light-mode .schedule-action-bar .sab-more summary{
@@ -3702,6 +4147,8 @@ body:not(.light-mode) .tm-divider{
 }
 body:not(.light-mode) .tm-row input,
 body:not(.light-mode) .tm-row select,
+body:not(.light-mode) .tm-toolbar-start input,
+body:not(.light-mode) .tm-toolbar-start select,
 body:not(.light-mode) .tm-search-wrap .search-input{
     border-color: rgba(34,240,255,0.12) !important;
 }
@@ -3709,7 +4156,9 @@ body.light-mode .tm-divider{
     background: rgba(15,55,85,0.08) !important;
 }
 body.light-mode .tm-row input,
-body.light-mode .tm-row select{
+body.light-mode .tm-row select,
+body.light-mode .tm-toolbar-start input,
+body.light-mode .tm-toolbar-start select{
     border-color: rgba(15,55,85,0.1) !important;
 }
 
@@ -3726,6 +4175,943 @@ body:not(.light-mode) .header-actions .btn-ghost:hover{
 body.light-mode .header-actions .btn-ghost{
     border-color: transparent !important;
     background: #f1f6fb !important;
+}
+
+/* ── 说明气泡 ── */
+.ui-hint-bubble{
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.ui-hint-trigger{
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-style: normal;
+    font-family: var(--font-ui);
+    cursor: help;
+    line-height: 20px;
+    text-align: center;
+    padding: 0;
+    transition: var(--transition);
+}
+.ui-hint-trigger:hover,
+.ui-hint-bubble:focus-within .ui-hint-trigger{
+    color: var(--primary-light);
+    border-color: var(--border-hover);
+    background: var(--bg-panel);
+}
+.ui-hint-tooltip{
+    position: absolute;
+    z-index: 400;
+    left: 50%;
+    bottom: calc(100% + 10px);
+    transform: translateX(-50%);
+    min-width: 220px;
+    max-width: min(380px, 92vw);
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.55;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-align: left;
+    color: var(--text-color);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+    overflow: visible;
+    max-height: none;
+    white-space: normal;
+    word-break: break-word;
+}
+.ui-hint-tooltip::after{
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--bg-elevated);
+    filter: drop-shadow(0 1px 0 var(--border));
+}
+.ui-hint-bubble:hover .ui-hint-tooltip,
+.ui-hint-bubble:focus-within .ui-hint-tooltip{
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-2px);
+}
+.ui-hint-bubble:hover,
+.ui-hint-bubble:focus-within{
+    z-index: 800;
+}
+/* 工作台顶栏：非排课合并条 → 气泡向下（避免被 Tab 挡住） */
+.table-manager:not(.tm-merged-schedule) .ui-hint-tooltip,
+.tab-context-host .ui-hint-tooltip{
+    bottom: auto;
+    top: calc(100% + 10px);
+    z-index: 2100;
+}
+.table-manager:not(.tm-merged-schedule) .ui-hint-bubble:hover .ui-hint-tooltip,
+.table-manager:not(.tm-merged-schedule) .ui-hint-bubble:focus-within .ui-hint-tooltip,
+.tab-context-host .ui-hint-bubble:hover .ui-hint-tooltip,
+.tab-context-host .ui-hint-bubble:focus-within .ui-hint-tooltip{
+    transform: translateX(-50%) translateY(2px);
+}
+.table-manager:not(.tm-merged-schedule) .ui-hint-tooltip::after,
+.tab-context-host .ui-hint-tooltip::after{
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--bg-elevated);
+    filter: drop-shadow(0 -1px 0 var(--border));
+}
+/* 排课合并工具栏：气泡向下（避免顶栏 clip-path 裁切向上气泡） */
+.schedule-action-top-merged .ui-hint-tooltip,
+#tableManagerBar.tm-merged-schedule .ui-hint-tooltip{
+    bottom: auto;
+    top: calc(100% + 10px);
+    z-index: 2100;
+}
+.schedule-action-top-merged .ui-hint-bubble:hover .ui-hint-tooltip,
+.schedule-action-top-merged .ui-hint-bubble:focus-within .ui-hint-tooltip,
+#tableManagerBar.tm-merged-schedule .ui-hint-bubble:hover .ui-hint-tooltip,
+#tableManagerBar.tm-merged-schedule .ui-hint-bubble:focus-within .ui-hint-tooltip{
+    transform: translateX(-50%) translateY(2px);
+}
+.schedule-action-top-merged .ui-hint-tooltip::after,
+#tableManagerBar.tm-merged-schedule .ui-hint-tooltip::after{
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--bg-elevated);
+    filter: drop-shadow(0 -1px 0 var(--border));
+}
+.app-workbench .schedule-action-top-merged,
+.app-workbench #tableManagerBar.table-manager,
+.app-workbench .tab-context-host,
+.app-workbench #tab-schedule,
+.app-workbench #tab-schedule .schedule-workspace{
+    overflow: visible !important;
+}
+.schedule-action-top-merged{
+    position: relative;
+    z-index: 40;
+}
+/* 说明/存储气泡展开时，整行抬到 dock 之上（仅叠层） */
+.schedule-action-top-merged:has(.ui-hint-bubble:hover),
+.schedule-action-top-merged:has(.ui-hint-bubble:focus-within){
+    z-index: 120;
+}
+.tab-context-host:has(.ui-hint-bubble:hover),
+.tab-context-host:has(.ui-hint-bubble:focus-within){
+    z-index: 120;
+    position: relative;
+}
+.table-manager .ui-hint-bubble:hover,
+.table-manager .ui-hint-bubble:focus-within{
+    z-index: 10050;
+}
+.table-manager .ui-hint-tooltip{
+    z-index: 10051;
+}
+#tableManagerBar.tm-merged-schedule{
+    transform: none !important;
+}
+.schedule-dock-inline{
+    position: relative;
+    z-index: 0;
+}
+body.light-mode .table-manager .ui-hint-tooltip,
+body.light-mode .tab-context-host .ui-hint-tooltip,
+body.light-mode .schedule-action-top-merged .ui-hint-tooltip{
+    background: #ffffff;
+    border-color: rgba(15, 23, 42, 0.1);
+    box-shadow: 0 10px 32px rgba(15, 23, 42, 0.12);
+}
+body.light-mode .table-manager:not(.tm-merged-schedule) .ui-hint-tooltip::after,
+body.light-mode .tab-context-host .ui-hint-tooltip::after{
+    border-bottom-color: #ffffff;
+}
+body.light-mode .schedule-action-top-merged .ui-hint-tooltip::after,
+body.light-mode #tableManagerBar.tm-merged-schedule .ui-hint-tooltip::after{
+    border-bottom-color: #ffffff;
+    border-top-color: transparent;
+}
+body:not(.light-mode) .schedule-action-top-merged .ui-hint-tooltip,
+body:not(.light-mode) #tableManagerBar.tm-merged-schedule .ui-hint-tooltip,
+body:not(.light-mode) .tab-context-host .ui-hint-tooltip,
+body:not(.light-mode) .table-manager:not(.tm-merged-schedule) .ui-hint-tooltip{
+    background: #121826 !important;
+    border-color: rgba(34, 240, 255, 0.32) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(34, 240, 255, 0.12) !important;
+    color: #e8fbff !important;
+}
+body:not(.light-mode) .schedule-action-top-merged .ui-hint-tooltip::after,
+body:not(.light-mode) #tableManagerBar.tm-merged-schedule .ui-hint-tooltip::after{
+    border-bottom-color: #121826;
+    border-top-color: transparent;
+}
+body:not(.light-mode) .table-manager:not(.tm-merged-schedule) .ui-hint-tooltip::after,
+body:not(.light-mode) .tab-context-host .ui-hint-tooltip::after{
+    border-bottom-color: #121826;
+}
+body:not(.light-mode) .ui-hint-bubble:hover .ui-hint-tooltip,
+body:not(.light-mode) .ui-hint-bubble:focus-within .ui-hint-tooltip{
+    color: #f0fdff !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+body:not(.light-mode) .ui-hint-bubble-storage:hover .ui-hint-tooltip.tm-storage-tooltip,
+body:not(.light-mode) .ui-hint-bubble-storage:focus-within .ui-hint-tooltip.tm-storage-tooltip{
+    color: #f0fdff !important;
+}
+.tm-meta-row .ui-hint-bubble{ margin-right: 4px; }
+.auto-schedule-divider-row{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 10px;
+}
+.auto-schedule-divider-row .auto-schedule-divider{
+    margin: 0;
+}
+.form-row .ui-hint-bubble{ margin-left: 4px; }
+.backup-panel-content > .form-row .ui-hint-bubble:first-child{ margin-right: 8px; }
+.ui-hint-bubble-storage .tm-storage-trigger{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-elevated);
+    cursor: pointer;
+    transition: var(--transition);
+}
+.ui-hint-bubble-storage .tm-storage-trigger:hover{
+    border-color: var(--border-hover);
+    background: var(--bg-panel);
+}
+.ui-hint-bubble-storage .tm-storage-trigger.storage-level-warn{
+    border-color: rgba(245, 158, 11, 0.45);
+}
+.ui-hint-bubble-storage .tm-storage-trigger.storage-level-danger{
+    border-color: rgba(239, 68, 68, 0.5);
+}
+.tm-storage-short-label{
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.ui-hint-bubble-storage .tm-storage-track{
+    flex: 0 0 72px;
+    width: 72px;
+    min-width: 72px;
+    max-width: 96px;
+    height: 6px;
+}
+.ui-hint-bubble-storage .ui-hint-tooltip.tm-storage-tooltip{
+    min-width: 260px;
+    max-width: min(440px, 92vw);
+    white-space: normal;
+    text-align: left;
+    line-height: 1.55;
+}
+.ui-hint-bubble-storage .ui-hint-tooltip.tm-storage-tooltip.warn{ color: #fbbf24; }
+.ui-hint-bubble-storage .ui-hint-tooltip.tm-storage-tooltip.danger{ color: #f87171; font-weight: 600; }
+body.light-mode .ui-hint-bubble-storage .tm-storage-trigger{
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ── 浅色模式 · 精细商务（总覆盖） ── */
+body.light-mode{
+    letter-spacing: 0.02em !important;
+    background-color: #f5f5f7 !important;
+    background-image: linear-gradient(180deg, #fafafa 0%, #ececee 100%) !important;
+    --text-color: #1d1d1f;
+    --text-muted: #6e6e73;
+    --border: rgba(0, 0, 0, 0.09);
+    --border-hover: rgba(0, 0, 0, 0.15);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 6px 20px rgba(0, 0, 0, 0.05);
+    --glow: none;
+}
+body.light-mode .app-header{
+    background: rgba(255, 255, 255, 0.86) !important;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04) !important;
+}
+body.light-mode .app-header::before{
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.07), transparent) !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+}
+body.light-mode .brand-text h1{
+    animation: none !important;
+    text-shadow: none !important;
+    color: #1d1d1f !important;
+}
+body.light-mode .panel-card,
+body.light-mode .table-manager,
+body.light-mode .nav-card,
+body.light-mode .schedule-action-bar,
+body.light-mode .schedule-workspace.panel-card,
+body.light-mode .schedule-dock-inline,
+body.light-mode .form-row,
+body.light-mode .occ-query-bar{
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+}
+body.light-mode .tab-top button{
+    background: #f5f5f7 !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    color: #424245 !important;
+    box-shadow: none !important;
+}
+body.light-mode .tab-top button.active{
+    background: #ffffff !important;
+    color: #1d1d1f !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+body.light-mode .btn-ghost{
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #1d1d1f !important;
+    box-shadow: none !important;
+}
+body.light-mode .btn-ghost:hover{
+    background: #f5f5f7 !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    color: #1d1d1f !important;
+    box-shadow: none !important;
+}
+body.light-mode .header-more-panel .header-more-item.btn-ghost:not(.header-more-logout){
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #1d1d1f !important;
+    box-shadow: none !important;
+}
+body.light-mode .header-more-panel .header-more-item.btn-ghost:not(.header-more-logout):hover{
+    background: #f5f5f7 !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+}
+body:not(.light-mode) .header-more-panel .header-more-item.btn-ghost:not(.header-more-logout){
+    background: rgba(34, 240, 255, 0.04) !important;
+    border: 1px solid rgba(34, 240, 255, 0.35) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: none !important;
+}
+body:not(.light-mode) .header-more-panel .header-more-item.btn-ghost:not(.header-more-logout):hover{
+    background: rgba(34, 240, 255, 0.12) !important;
+    border-color: var(--neon-cyan) !important;
+    color: #fff !important;
+}
+body:not(.light-mode) .header-more-panel .header-more-item.btn-exit,
+body:not(.light-mode) .header-more-panel .header-more-logout{
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    min-height: 40px !important;
+    padding: 10px 14px !important;
+    clip-path: none !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+body.light-mode .header-more-panel .header-more-item.btn-exit{
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    min-height: 40px !important;
+    padding: 10px 14px !important;
+}
+body.light-mode .sab-btn{
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #424245 !important;
+    box-shadow: none !important;
+}
+body.light-mode .sab-btn:hover{
+    background: #f5f5f7 !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    color: #1d1d1f !important;
+    box-shadow: none !important;
+}
+body.light-mode .sab-btn-primary{
+    background: linear-gradient(180deg, #ffffff, #f5f5f7) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: #1d1d1f !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    font-weight: 600 !important;
+}
+body.light-mode .search-input,
+body.light-mode .status-select,
+body.light-mode .dock-field select,
+body.light-mode .form-row input,
+body.light-mode .form-row select{
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: #1d1d1f !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+body.light-mode .ui-hint-trigger{
+    background: #f5f5f7;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #6e6e73;
+}
+body.light-mode .ui-hint-tooltip{
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #424245;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+body.light-mode .ui-hint-tooltip::after{
+    border-top-color: #ffffff;
+}
+
+
+/* ── 统一工作台：减少模块割裂 ── */
+.app-workbench.panel-card{
+    padding: 0;
+    overflow: visible;
+    margin-bottom: 14px;
+}
+.app-workbench > .nav-card.tab-top{
+    margin-bottom: 0;
+    padding: 10px 14px 10px;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 1;
+}
+.app-workbench .main-panel{
+    position: relative;
+    z-index: 3;
+}
+.tab-context-host{
+    padding: 12px 0 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+.tab-context-host .table-manager,
+.schedule-action-top-merged > #tableManagerBar.table-manager{
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+}
+.schedule-action-top-merged{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    padding-bottom: 12px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+.schedule-action-top-merged > #tableManagerBar{
+    flex: 1 1 380px;
+    min-width: 260px;
+    order: 0;
+}
+.schedule-action-top-merged .sab-primary{
+    flex: 0 1 auto;
+    order: 1;
+}
+.schedule-action-top-merged .sab-more{
+    flex: 0 0 auto;
+    order: 2;
+    margin-left: auto;
+}
+#tableManagerBar.tm-merged-schedule .tm-toolbar{
+    flex-wrap: nowrap;
+    gap: 8px 10px;
+}
+#tableManagerBar.tm-merged-schedule .tm-search-wrap{
+    width: 120px;
+    max-width: 120px;
+    flex: 0 0 120px;
+}
+#tableManagerBar.tm-merged-schedule .tm-table-select{
+    max-width: 160px;
+}
+@media (max-width: 1100px){
+    #tableManagerBar.tm-merged-schedule .tm-toolbar{
+        flex-wrap: wrap;
+    }
+    .schedule-action-top-merged .sab-more{
+        margin-left: 0;
+    }
+}
+.app-workbench .main-panel{
+    padding: 6px 18px 20px;
+}
+.app-workbench .main-panel .tab-content .form-row,
+.app-workbench .main-panel .tab-content .list-search-bar,
+.app-workbench .main-panel .occ-query-bar.panel-card,
+.app-workbench .main-panel .occ-free-panel.panel-card,
+.app-workbench .main-panel .schedule-workspace.panel-card,
+.app-workbench .main-panel .schedule-dock-inline,
+.app-workbench .main-panel .backup-panel-content,
+.app-workbench .main-panel .auto-schedule-panel .form-row{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    clip-path: none !important;
+    border-radius: 0 !important;
+}
+.app-workbench .main-panel .tab-content > .form-row,
+.app-workbench .main-panel .tab-content > .list-search-bar,
+.app-workbench .main-panel .occ-query-bar.panel-card{
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+}
+.app-workbench .main-panel .tab-content .form-row:not(:last-child){
+    margin-bottom: 4px;
+}
+.app-workbench .main-panel .backup-panel-content .form-row,
+.app-workbench .main-panel .auto-schedule-panel .form-row{
+    padding: 10px 0;
+    border-bottom: none;
+}
+.app-workbench .main-panel .schedule-workspace.panel-card{
+    padding: 12px 0 0;
+    margin-bottom: 8px;
+}
+.app-workbench .main-panel .occ-free-panel.panel-card{
+    padding: 16px 0 0;
+    margin-top: 8px;
+    border-top: 1px solid var(--border) !important;
+}
+.app-workbench .main-panel .occ-free-panel.panel-card h3{
+    margin-bottom: 10px;
+    font-size: 15px;
+}
+.app-workbench .main-panel > .tab-content > table,
+.app-workbench .main-panel .tab-content > table{
+    margin-top: 8px;
+}
+.app-workbench .backup-collapse{
+    margin-top: 12px;
+}
+.app-workbench .backup-collapse summary{
+    background: rgba(127, 127, 127, 0.08);
+}
+body.light-mode .app-workbench.panel-card{
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.07) !important;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.045) !important;
+}
+body.light-mode .app-workbench > .nav-card.tab-top,
+body.light-mode .tab-context-host,
+body.light-mode .schedule-action-top-merged{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07) !important;
+}
+body.light-mode .app-workbench .main-panel > .tab-content > .form-row,
+body.light-mode .app-workbench .main-panel .tab-content .list-search-bar,
+body.light-mode .app-workbench .main-panel .occ-query-bar.panel-card,
+body.light-mode .app-workbench .main-panel .schedule-workspace.panel-card,
+body.light-mode .app-workbench .main-panel .occ-free-panel.panel-card,
+body.light-mode .app-workbench .main-panel .form-row,
+body.light-mode .app-workbench .main-panel .occ-query-bar{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+body.light-mode .app-workbench .main-panel > .tab-content > .form-row,
+body.light-mode .app-workbench .main-panel .tab-content .list-search-bar,
+body.light-mode .app-workbench .main-panel .occ-query-bar.panel-card{
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+body.light-mode .app-workbench .backup-collapse summary{
+    background: #f5f5f7;
+    border-color: rgba(0, 0, 0, 0.08);
+}
+body.light-mode .app-bg{
+    background: #f5f5f7 !important;
+    background-image: none !important;
+}
+body:not(.light-mode) .app-workbench > .nav-card.tab-top,
+body:not(.light-mode) .tab-context-host,
+body:not(.light-mode) .schedule-action-top-merged{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid rgba(34, 240, 255, 0.18) !important;
+}
+body:not(.light-mode) .app-workbench .main-panel .form-row,
+body:not(.light-mode) .app-workbench .main-panel .occ-query-bar.panel-card{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid rgba(34, 240, 255, 0.12) !important;
+}
+
+.app-workbench .main-panel .auto-schedule-panel{
+    padding-top: 4px;
+}
+.app-workbench .main-panel .tab-content .ui-hint-bubble{
+    margin-bottom: 10px;
+}
+
+/* ── 顶部色彩系统 · 精细商务（浅色为主，深色工作台同步收束） ── */
+body.light-mode{
+    --chrome-accent: #0f766e;
+    --chrome-accent-soft: #ccfbf1;
+    --chrome-ink: #1e293b;
+    --chrome-muted: #64748b;
+    --chrome-line: rgba(15, 23, 42, 0.08);
+    --chrome-surface: #f4f5f7;
+    --chrome-elevated: #ffffff;
+}
+body.light-mode .app-header{
+    background: var(--chrome-elevated) !important;
+    border: 1px solid var(--chrome-line) !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+    margin-bottom: 16px;
+    padding: 16px 20px;
+}
+body.light-mode .app-header::before{
+    background: linear-gradient(90deg, transparent, rgba(15, 118, 110, 0.35), transparent) !important;
+    box-shadow: none !important;
+    height: 1px !important;
+    opacity: 1 !important;
+}
+body.light-mode .brand-text h1{
+    background: none !important;
+    -webkit-text-fill-color: var(--chrome-ink) !important;
+    color: var(--chrome-ink) !important;
+    letter-spacing: 0.02em;
+}
+body.light-mode .header-subtitle{
+    color: var(--chrome-muted) !important;
+    letter-spacing: 0.12em;
+    opacity: 1;
+}
+body.light-mode .header-user-label,
+body.light-mode .header-more-menu summary.header-more-trigger{
+    background: var(--chrome-surface) !important;
+    color: var(--chrome-ink) !important;
+    border: 1px solid var(--chrome-line) !important;
+    box-shadow: none !important;
+    border-radius: 999px !important;
+    font-weight: 600;
+}
+body.light-mode .header-user-label::before{
+    background: var(--chrome-accent) !important;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important;
+}
+body.light-mode .header-more-menu[open] summary.header-more-trigger{
+    color: var(--chrome-accent) !important;
+    border-color: rgba(15, 118, 110, 0.28) !important;
+    background: var(--chrome-elevated) !important;
+}
+body.light-mode .app-workbench.panel-card{
+    border: 1px solid var(--chrome-line) !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+body.light-mode .app-workbench > .nav-card.tab-top{
+    background: var(--chrome-surface) !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid var(--chrome-line) !important;
+    border-radius: 0 !important;
+    padding: 7px 10px !important;
+    margin-bottom: 0 !important;
+    gap: 4px;
+}
+body.light-mode .app-workbench .tab-top button{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #1d1d1f !important;
+    font-weight: 600 !important;
+    font-size: 17px !important;
+    padding: 12px 10px !important;
+    border-radius: 8px !important;
+    letter-spacing: 0 !important;
+}
+body.light-mode .app-workbench .tab-top button:hover{
+    background: rgba(255, 255, 255, 0.65) !important;
+    color: #000000 !important;
+    border: none !important;
+}
+body.light-mode .app-workbench .tab-top button.active,
+body.light-mode .app-workbench .tab-top button.active:hover{
+    background: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35) !important;
+    border: none !important;
+}
+body.light-mode .tab-context-host,
+body.light-mode .schedule-action-top-merged{
+    border-bottom-color: var(--chrome-line) !important;
+}
+body.light-mode .table-manager .tm-label{
+    color: #1d1d1f;
+}
+body.light-mode .app-workbench .search-hint,
+body.light-mode .app-workbench .table-manager .tm-count-hint,
+body.light-mode .app-workbench .tm-storage-short-label{
+    color: #1d1d1f !important;
+}
+body.light-mode .app-workbench .table-manager .search-input::placeholder{
+    color: #1d1d1f !important;
+    opacity: 0.72;
+}
+body.light-mode .app-workbench .ui-hint-trigger{
+    color: #1d1d1f !important;
+}
+body.light-mode .table-manager .tm-toolbar-start input,
+body.light-mode .table-manager .tm-toolbar-start select,
+body.light-mode .ui-hint-bubble-storage .tm-storage-trigger{
+    background: var(--chrome-elevated) !important;
+    border-color: var(--chrome-line) !important;
+    color: var(--chrome-ink) !important;
+}
+body.light-mode .table-manager .tm-toolbar-start input:focus,
+body.light-mode .table-manager .tm-toolbar-start select:focus{
+    border-color: rgba(15, 118, 110, 0.45) !important;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12) !important;
+}
+body.light-mode .schedule-action-top .sab-btn{
+    background: var(--chrome-elevated) !important;
+    border: 1px solid var(--chrome-line) !important;
+    color: #1d1d1f !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+body.light-mode .schedule-action-top .sab-btn:hover{
+    color: #000000 !important;
+    border-color: rgba(15, 23, 42, 0.14) !important;
+    background: var(--chrome-surface) !important;
+    transform: none !important;
+}
+body.light-mode .schedule-action-top .sab-btn-primary{
+    background: var(--chrome-accent-soft) !important;
+    border-color: rgba(15, 118, 110, 0.22) !important;
+    color: var(--chrome-accent) !important;
+}
+body.light-mode .schedule-action-top .sab-btn-primary:hover{
+    background: #99f6e4 !important;
+    border-color: rgba(15, 118, 110, 0.35) !important;
+    color: #115e59 !important;
+}
+body.light-mode .schedule-action-top .sab-btn-icon{
+    color: #1d1d1f !important;
+}
+body.light-mode .schedule-action-top .sab-sep{
+    background: var(--chrome-line) !important;
+    opacity: 1;
+}
+body.light-mode .schedule-workspace .sab-more > summary,
+body.light-mode .schedule-action-top .sab-more > summary,
+body.light-mode .schedule-workspace .sab-more[open] > summary,
+body.light-mode .schedule-action-top .sab-more[open] > summary{
+    color: #1d1d1f !important;
+    font-weight: 600 !important;
+    border: 1px solid rgba(15, 118, 110, 0.22) !important;
+    background: var(--chrome-elevated) !important;
+    border-radius: 8px;
+    padding: 8px 14px;
+}
+body.light-mode .schedule-dock-inline{
+    border-top-color: var(--chrome-line) !important;
+    padding-top: 14px;
+    margin-top: 4px;
+}
+body.light-mode .schedule-dock-inline .dock-label,
+body.light-mode .schedule-dock .dock-label{
+    color: #1d1d1f !important;
+    font-weight: 600;
+    font-size: 14px !important;
+    letter-spacing: 0.02em;
+}
+.app-workbench .tab-top button{
+    font-size: 17px;
+    padding: 12px 10px;
+}
+.schedule-dock-inline .dock-label,
+.schedule-dock .dock-label{
+    font-size: 14px;
+}
+body.light-mode .schedule-dock-inline .dock-field select,
+body.light-mode .schedule-dock .dock-field select{
+    background: var(--chrome-surface) !important;
+    border-color: var(--chrome-line) !important;
+    color: #1d1d1f !important;
+}
+body.light-mode .app-workbench .table-manager .tm-toolbar-start input,
+body.light-mode .app-workbench .table-manager .tm-toolbar-start select{
+    color: #1d1d1f !important;
+}
+body.light-mode .schedule-dock-inline .dock-field select:focus,
+body.light-mode .schedule-dock .dock-field select:focus{
+    border-color: rgba(15, 118, 110, 0.4) !important;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1) !important;
+    background: var(--chrome-elevated) !important;
+}
+body.light-mode .brand-mark{
+    background: linear-gradient(145deg, #0f766e, #134e4a) !important;
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+}
+body:not(.light-mode) .app-workbench > .nav-card.tab-top{
+    background: rgba(8, 18, 40, 0.45) !important;
+    border-bottom-color: rgba(45, 212, 191, 0.15) !important;
+}
+body:not(.light-mode) .app-workbench .tab-top button.active{
+    background: rgba(59, 130, 246, 0.28) !important;
+    color: #dbeafe !important;
+    box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.45), 0 0 12px rgba(59, 130, 246, 0.2) !important;
+    border: none !important;
+    text-shadow: none !important;
+}
+body:not(.light-mode) .schedule-action-top .sab-more > summary{
+    color: #5eead4 !important;
+}
+
+/* ── 排课顶栏：单层扁平，取消套娃白框 ── */
+body.light-mode .app-workbench #tableManagerBar.table-manager,
+body.light-mode .app-workbench .tab-context-host .table-manager,
+body:not(.light-mode) .app-workbench #tableManagerBar.table-manager{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    clip-path: none !important;
+}
+body.light-mode .app-workbench #tab-schedule .schedule-workspace,
+body:not(.light-mode) .app-workbench #tab-schedule .schedule-workspace{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.schedule-action-top-merged{
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 10px 0 12px !important;
+    margin-bottom: 8px !important;
+    border-bottom: 1px solid var(--border);
+    background: transparent !important;
+}
+body.light-mode .schedule-action-top-merged{
+    border-bottom-color: var(--chrome-line, rgba(15, 23, 42, 0.08)) !important;
+}
+.schedule-action-top-merged > #tableManagerBar{
+    flex: 1 1 240px;
+    min-width: 0;
+    max-width: none;
+}
+#tableManagerBar.tm-merged-schedule .tm-toolbar{
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+#tableManagerBar.tm-merged-schedule .tm-toolbar-start{
+    flex: 0 1 auto;
+    min-width: 0;
+}
+#tableManagerBar.tm-merged-schedule .tm-toolbar-end{
+    flex: 0 0 auto;
+    margin-left: 0;
+}
+#tableManagerBar.tm-merged-schedule .tm-toolbar-end::before{
+    display: none !important;
+}
+.schedule-action-top-merged .sab-primary{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 6px;
+    margin-left: 0;
+    border-left: 1px solid var(--border);
+}
+body.light-mode .schedule-action-top-merged .sab-primary{
+    border-left-color: var(--chrome-line, rgba(15, 23, 42, 0.08));
+}
+.schedule-action-top-merged .sab-more{
+    margin-left: 0 !important;
+    flex: 0 0 auto;
+}
+#tableManagerBar.tm-merged-schedule .ui-hint-bubble-storage .tm-storage-trigger{
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 6px !important;
+    gap: 6px;
+}
+body.light-mode #tableManagerBar.tm-merged-schedule .ui-hint-bubble-storage .tm-storage-trigger{
+    background: transparent !important;
+}
+#tableManagerBar.tm-merged-schedule .tm-toolbar-start input,
+#tableManagerBar.tm-merged-schedule .tm-toolbar-start select,
+.schedule-action-top-merged .sab-btn,
+.schedule-action-top-merged .sab-more > summary{
+    height: 34px;
+    box-sizing: border-box;
+    border-radius: 8px;
+}
+body.light-mode #tableManagerBar.tm-merged-schedule .tm-toolbar-start input,
+body.light-mode #tableManagerBar.tm-merged-schedule .tm-toolbar-start select{
+    background: var(--chrome-surface, #f4f5f7) !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+}
+body.light-mode #tableManagerBar.tm-merged-schedule .tm-toolbar-start input:focus,
+body.light-mode #tableManagerBar.tm-merged-schedule .tm-toolbar-start select:focus{
+    background: #fff !important;
+    border-color: rgba(15, 118, 110, 0.35) !important;
+}
+body.light-mode .schedule-action-top-merged .sab-btn,
+body.light-mode .schedule-action-top-merged .sab-more > summary{
+    background: var(--chrome-surface, #f4f5f7) !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+}
+body.light-mode .schedule-action-top-merged .sab-btn-primary{
+    background: var(--chrome-accent-soft, #ccfbf1) !important;
+    border-color: transparent !important;
+}
+body.light-mode .schedule-action-top-merged .sab-more > summary{
+    border: 1px solid transparent !important;
+}
+@media (max-width: 900px){
+    .schedule-action-top-merged .sab-primary{
+        border-left: none;
+        padding-left: 0;
+        width: 100%;
+    }
 }
 </style>
 <script src="vendor/html2canvas.min.js"></script>
@@ -3813,36 +5199,24 @@ body.light-mode .header-actions .btn-ghost{
         <span id="licenseTrialBadge" class="license-trial-badge" title="试用期"></span>
         <span id="currentUserLabel" class="header-user-label" title="当前登录用户" data-i18n-title="header.currentUser"></span>
         <span id="lanRoleBadge" class="lan-role-badge" title="局域网权限" data-i18n-title="header.lanRole"></span>
-        <button class="btn-ghost" type="button" onclick="openHelpGuide()" title="说明与操作指南" data-i18n="header.help" data-i18n-title="header.helpTitle">说明</button>
-        <button class="btn-ghost" type="button" onclick="openLanModal()" title="局域网主机连接与同步" data-i18n="header.lan" data-i18n-title="header.lanTitle">局域网</button>
-        <button class="btn-ghost" type="button" onclick="openUserManageModal()" title="添加或删除用户、修改密码" data-i18n="header.userManage" data-i18n-title="header.userManageTitle">用户管理</button>
-        <button class="btn-ghost" type="button" onclick="logoutUser()" title="退出当前登录" data-i18n="header.logout" data-i18n-title="header.logoutTitle">退出登录</button>
-        <button class="btn-ghost" id="langToggleBtn" type="button" onclick="toggleAppLang()" data-i18n-title="header.langTitle" title="Switch language / 切换语言">EN</button>
-        <button class="btn-ghost" id="themeToggleBtn" title="切换主题" data-i18n-title="header.themeTitle">主题</button>
-        <button class="btn-exit" type="button" onclick="openExitConfirm()" data-i18n="header.exit">退出</button>
+        <details class="header-more-menu">
+            <summary class="header-user-label header-more-trigger" data-i18n="header.more">其他功能</summary>
+            <div class="header-more-panel" role="menu">
+                <button class="btn-ghost header-more-item" type="button" onclick="closeHeaderMoreMenu(); openHelpGuide();" title="说明与操作指南" data-i18n="header.help" data-i18n-title="header.helpTitle">说明</button>
+                <button class="btn-ghost header-more-item" type="button" onclick="closeHeaderMoreMenu(); openLanModal();" title="局域网主机连接与同步" data-i18n="header.lan" data-i18n-title="header.lanTitle">局域网</button>
+                <button class="btn-ghost header-more-item" type="button" onclick="closeHeaderMoreMenu(); openUserManageModal();" title="添加或删除用户、修改密码" data-i18n="header.userManage" data-i18n-title="header.userManageTitle">用户管理</button>
+                <button class="btn-ghost header-more-item header-more-logout" type="button" onclick="closeHeaderMoreMenu(); logoutUser();" title="退出当前登录" data-i18n="header.logout" data-i18n-title="header.logoutTitle">退出登录</button>
+                <button class="btn-ghost header-more-item" id="langToggleBtn" type="button" onclick="closeHeaderMoreMenu(); toggleAppLang();" data-i18n-title="header.langTitle" title="Switch language / 切换语言">EN</button>
+                <button class="btn-ghost header-more-item" id="themeToggleBtn" title="切换主题" data-i18n-title="header.themeTitle">主题</button>
+                <button class="btn-exit header-more-item" type="button" onclick="closeHeaderMoreMenu(); openExitConfirm();" data-i18n="header.exit">退出系统</button>
+                <button class="btn-ghost header-more-item" id="xiaoduolaMusicBtn" type="button" onclick="toggleXiaoduolaMusic();" title="播放音乐">播放音乐</button>
+            </div>
+        </details>
     </div>
 </header>
 
-<div class="table-manager panel-card">
-    <div class="tm-row">
-        <span class="tm-label" data-i18n="tableMgr.current">当前</span>
-        <div class="search-wrap tm-search-wrap">
-            <input type="text" id="tableSelectSearch" class="search-input" placeholder="检索课表…" data-i18n-placeholder="tableMgr.searchPlaceholder" oninput="renderTableTags()">
-        </div>
-        <select id="tableSelect" class="status-select tm-table-select" onchange="switchTable(this.value)"></select>
-        <span id="tableSelectSearchHint" class="search-hint"></span>
-        <button class="btn-red" type="button" onclick="delCurrentTable()" data-i18n="tableMgr.deleteCurrent">删除当前课表</button>
-    </div>
-    <p class="backup-hint tm-hint" data-i18n="tableMgr.hint">课表名称与班级名称一致；请在「班级」页新增或修改班级，系统自动创建/同步课表。</p>
-    <div class="tm-storage" id="storageStatusBar" onclick="openStorageBackupHint()" style="cursor:pointer" title="点击查看备份" data-i18n-title="tableMgr.storageClick">
-        <div class="tm-storage-track" title="本地存储占用" data-i18n-title="tableMgr.storageTitle">
-            <div class="tm-storage-fill" id="storageStatusFill"></div>
-        </div>
-        <span class="tm-storage-text" id="storageStatusText" data-i18n="tableMgr.storageComputing">存储用量计算中…</span>
-    </div>
-</div>
-
-<nav class="nav-card panel-card tab-top">
+<div class="app-workbench panel-card">
+<nav class="nav-card tab-top">
     <button class="active" onclick="switchTab('time',this)" data-i18n="nav.time">课时</button>
     <button onclick="switchTab('class',this)" data-i18n="nav.class">班级</button>
     <button onclick="switchTab('teacher',this)" data-i18n="nav.teacher">教师</button>
@@ -3854,6 +5228,33 @@ body.light-mode .header-actions .btn-ghost{
 
 <main class="main-panel">
 <div id="tab-time" class="tab-content active">
+    <div class="tab-context-host">
+    <div id="tableManagerBar" class="table-manager">
+        <div class="tm-toolbar">
+            <div class="tm-toolbar-start">
+                <span class="tm-label" data-i18n="tableMgr.current">当前</span>
+                <div class="search-wrap tm-search-wrap">
+                    <input type="text" id="tableSelectSearch" class="search-input" placeholder="检索课表…" data-i18n-placeholder="tableMgr.searchPlaceholder" oninput="renderTableTags()">
+                </div>
+                <select id="tableSelect" class="status-select tm-table-select" onchange="switchTable(this.value)"></select>
+                <span id="tableSelectSearchHint" class="search-hint tm-count-hint"></span>
+            </div>
+            <div class="tm-toolbar-end">
+                <span class="ui-hint-bubble tm-hint-bubble" tabindex="0"><button type="button" class="ui-hint-trigger" aria-label="说明">i</button><span class="ui-hint-tooltip" data-i18n="tableMgr.hint">课表名称与班级名称一致；请在「班级」页新增或修改班级，系统自动创建/同步课表。</span></span>
+                <span class="ui-hint-bubble ui-hint-bubble-storage" tabindex="0">
+                    <div class="tm-storage-trigger" id="storageStatusBar" onclick="openStorageBackupHint()" role="button" tabindex="0" title="悬停查看详情，点击可打开备份" data-i18n-title="tableMgr.storageClick">
+                        <span class="tm-storage-short-label" data-i18n="tableMgr.storageShort">存储</span>
+                        <div class="tm-storage-track" aria-hidden="true">
+                            <div class="tm-storage-fill" id="storageStatusFill"></div>
+                        </div>
+                    </div>
+                    <span class="ui-hint-tooltip tm-storage-tooltip" id="storageStatusText" data-i18n="tableMgr.storageComputing">存储用量计算中…</span>
+                </span>
+                <button class="btn-red tm-delete-btn" type="button" onclick="delCurrentTable()" data-i18n="tableMgr.deleteCurrent">删除当前课表</button>
+            </div>
+        </div>
+    </div>
+    </div>
     <div class="form-row">
         <label data-i18n="time.name">课时名称：</label>
         <input type="text" id="timeName" placeholder="输入课时名称" data-i18n-placeholder="time.namePlaceholder">
@@ -3873,7 +5274,6 @@ body.light-mode .header-actions .btn-ghost{
         <button class="btn-orange" onclick="exportTimeTemplatesForPack()" data-i18n="time.exportTpl">导出模版文件</button>
         <button class="btn-blue" onclick="renameTimeTemplate()" data-i18n="time.rename">重命名</button>
         <button class="btn-red" onclick="delTimeTemplate()" data-i18n="time.deleteTpl">删除</button>
-        <span class="backup-hint" data-i18n="time.hint">新建模版：点「新建模版」；改现有模版：下拉选中后编辑课时再点「保存模版」；删除后不会自动恢复。打包前请「导出模版文件」替换项目 timeTemplates.json</span>
     </div>
     <table>
         <thead>
@@ -3888,25 +5288,26 @@ body.light-mode .header-actions .btn-ghost{
 </div>
 
 <div id="tab-class" class="tab-content">
-    <div class="form-row">
+    <div class="tab-context-host"></div>
+    <div class="form-row form-row-with-backup">
         <label data-i18n="class.name">班级名称：</label>
         <input type="text" id="className" placeholder="输入班级名称（即课表名称）" data-i18n-placeholder="class.namePlaceholder">
         <select id="newClassTimeTemplate" title="课时模版" data-i18n-title="class.timeTplTitle">
             <option value="default" data-i18n="class.defaultTime">默认课时</option>
         </select>
         <button class="btn-blue" onclick="addClass()" data-i18n="class.add">新增班级</button>
-        <span class="backup-hint" data-i18n="class.hint">新增班级后自动创建同名课表，无需再单独新建课表</span>
-    </div>
-    <details class="backup-collapse">
-        <summary data-i18n="common.backupImport">备份 / 导入</summary>
-        <div class="backup-panel-content">
-            <div class="form-row">
-                <button class="btn-orange" onclick="exportClassBackup()" data-i18n="class.export">导出班级</button>
-                <input type="file" id="classBackupFile" accept=".json">
-                <button class="btn-orange" onclick="importClassBackup()" data-i18n="class.import">导入班级</button>
+        <span class="ui-hint-bubble" tabindex="0"><button type="button" class="ui-hint-trigger" aria-label="说明">i</button><span class="ui-hint-tooltip" data-i18n="class.hint">新增班级后自动创建同名课表，无需再单独新建课表</span></span>
+        <details class="backup-collapse">
+            <summary data-i18n="common.backupImport">备份 / 导入</summary>
+            <div class="backup-panel-content">
+                <div class="form-row">
+                    <button class="btn-orange" onclick="exportClassBackup()" data-i18n="class.export">导出班级</button>
+                    <input type="file" id="classBackupFile" accept=".json">
+                    <button class="btn-orange" onclick="importClassBackup()" data-i18n="class.import">导入班级</button>
+                </div>
             </div>
-        </div>
-    </details>
+        </details>
+    </div>
     <div class="form-row list-search-bar">
         <label data-i18n="common.search">检索</label>
         <div class="search-wrap">
@@ -3927,21 +5328,22 @@ body.light-mode .header-actions .btn-ghost{
 </div>
 
 <div id="tab-teacher" class="tab-content">
-    <div class="form-row">
+    <div class="tab-context-host"></div>
+    <div class="form-row form-row-with-backup">
         <label data-i18n="teacher.name">教师姓名：</label>
         <input type="text" id="teacherName" placeholder="输入教师姓名" data-i18n-placeholder="teacher.namePlaceholder">
         <button class="btn-blue" onclick="addTeacher()" data-i18n="teacher.add">新增教师</button>
-    </div>
-    <details class="backup-collapse">
-        <summary data-i18n="common.backupImport">备份 / 导入</summary>
-        <div class="backup-panel-content">
-            <div class="form-row">
-                <button class="btn-orange" onclick="exportTeacherBackup()" data-i18n="teacher.export">导出教师</button>
-                <input type="file" id="teacherBackupFile" accept=".json">
-                <button class="btn-orange" onclick="importTeacherBackup()" data-i18n="teacher.import">导入教师</button>
+        <details class="backup-collapse">
+            <summary data-i18n="common.backupImport">备份 / 导入</summary>
+            <div class="backup-panel-content">
+                <div class="form-row">
+                    <button class="btn-orange" onclick="exportTeacherBackup()" data-i18n="teacher.export">导出教师</button>
+                    <input type="file" id="teacherBackupFile" accept=".json">
+                    <button class="btn-orange" onclick="importTeacherBackup()" data-i18n="teacher.import">导入教师</button>
+                </div>
             </div>
-        </div>
-    </details>
+        </details>
+    </div>
     <div class="form-row list-search-bar">
         <label data-i18n="common.search">检索</label>
         <div class="search-wrap">
@@ -3962,21 +5364,22 @@ body.light-mode .header-actions .btn-ghost{
 </div>
 
 <div id="tab-room" class="tab-content">
-    <div class="form-row">
+    <div class="tab-context-host"></div>
+    <div class="form-row form-row-with-backup">
         <label data-i18n="room.name">教室名称：</label>
         <input type="text" id="roomName" placeholder="输入教室名称" data-i18n-placeholder="room.namePlaceholder">
         <button class="btn-blue" onclick="addRoom()" data-i18n="room.add">新增教室</button>
-    </div>
-    <details class="backup-collapse">
-        <summary data-i18n="common.backupImport">备份 / 导入</summary>
-        <div class="backup-panel-content">
-            <div class="form-row">
-                <button class="btn-orange" onclick="exportRoomBackup()" data-i18n="room.export">导出教室</button>
-                <input type="file" id="roomBackupFile" accept=".json">
-                <button class="btn-orange" onclick="importRoomBackup()" data-i18n="room.import">导入教室</button>
+        <details class="backup-collapse">
+            <summary data-i18n="common.backupImport">备份 / 导入</summary>
+            <div class="backup-panel-content">
+                <div class="form-row">
+                    <button class="btn-orange" onclick="exportRoomBackup()" data-i18n="room.export">导出教室</button>
+                    <input type="file" id="roomBackupFile" accept=".json">
+                    <button class="btn-orange" onclick="importRoomBackup()" data-i18n="room.import">导入教室</button>
+                </div>
             </div>
-        </div>
-    </details>
+        </details>
+    </div>
     <table>
         <thead>
         <tr>
@@ -3990,7 +5393,8 @@ body.light-mode .header-actions .btn-ghost{
 </div>
 
 <div id="tab-course" class="tab-content">
-    <div class="form-row">
+    <div class="tab-context-host"></div>
+    <div class="form-row form-row-with-backup">
         <label data-i18n="course.name">课程名称：</label>
         <select id="courseNameSelect">
             <option value="" data-i18n="course.selectName">请选择课程名称</option>
@@ -4005,17 +5409,17 @@ body.light-mode .header-actions .btn-ghost{
             <option value="" data-i18n="course.selectClass">选择学员组</option>
         </select>
         <button class="btn-blue" onclick="addCourse()" data-i18n="course.add">新增课程</button>
-    </div>
-    <details class="backup-collapse">
-        <summary data-i18n="common.backupImport">备份 / 导入</summary>
-        <div class="backup-panel-content">
-            <div class="form-row">
-                <button class="btn-orange" onclick="exportCourseBackup()" data-i18n="course.export">导出课程</button>
-                <input type="file" id="courseBackupFile" accept=".json">
-                <button class="btn-orange" onclick="importCourseBackup()" data-i18n="course.import">导入课程数据</button>
+        <details class="backup-collapse">
+            <summary data-i18n="common.backupImport">备份 / 导入</summary>
+            <div class="backup-panel-content">
+                <div class="form-row">
+                    <button class="btn-orange" onclick="exportCourseBackup()" data-i18n="course.export">导出课程</button>
+                    <input type="file" id="courseBackupFile" accept=".json">
+                    <button class="btn-orange" onclick="importCourseBackup()" data-i18n="course.import">导入课程数据</button>
+                </div>
             </div>
-        </div>
-    </details>
+        </details>
+    </div>
     <div class="form-row course-group-toolbar">
         <label data-i18n="course.groupBy">分组维度：</label>
         <select id="courseGroupBy" onchange="onCourseGroupByChange()">
@@ -4035,24 +5439,29 @@ body.light-mode .header-actions .btn-ghost{
 </div>
 
 <div id="tab-schedule" class="tab-content">
-    <div class="schedule-action-bar panel-card">
-        <div class="schedule-action-top">
+    <div class="schedule-workspace">
+        <div class="schedule-action-top schedule-action-top-merged">
             <div class="sab-primary">
                 <button type="button" class="sab-btn sab-btn-icon" onclick="undoStep()" title="上一步" data-i18n-title="schedule.undo">↩</button>
                 <button type="button" class="sab-btn sab-btn-icon" onclick="redoStep()" title="下一步" data-i18n-title="schedule.redo">↪</button>
                 <span class="sab-sep"></span>
-                <button type="button" class="sab-btn sab-btn-primary" onclick="checkAllConflict()" data-i18n="schedule.conflictCheck">冲突检测</button>
-                <button type="button" class="sab-btn sab-btn-primary" onclick="showConflictDetail()" data-i18n="schedule.conflictDetail">查看冲突详情</button>
-                <button type="button" class="sab-btn sab-btn-primary" onclick="exportScheduleToExcel()" data-i18n="schedule.exportExcel">导出 Excel</button>
-                <button type="button" class="sab-btn sab-btn-primary" onclick="exportScheduleToImage()" data-i18n="schedule.exportImage">导出图片</button>
-                <button type="button" class="sab-btn" onclick="printTable()" data-i18n="schedule.print">打印</button>
-                <button type="button" class="sab-btn" onclick="clearCell()" data-i18n="schedule.clearCell">清空单元格</button>
-                <button type="button" class="sab-btn" onclick="clearAllCurrentTable()" data-i18n="schedule.clearAll">一键清空</button>
-                <button type="button" class="sab-btn" onclick="saveSnapshot()" data-i18n="schedule.saveSnapshot">保存快照</button>
+                <button type="button" class="sab-btn sab-btn-primary" onclick="clearCell()" data-i18n="schedule.clearCell">清空单元格</button>
+                <button type="button" id="btnConflictDetailBar" class="sab-btn sab-btn-conflict" style="display:none" onclick="showConflictDetail()" data-i18n="schedule.conflictDetail">查看冲突详情</button>
             </div>
             <details class="sab-more">
-                <summary data-i18n="schedule.exportMore">导出教师/教室课表</summary>
+                <summary data-i18n="schedule.more">导出</summary>
                 <div class="sab-more-body">
+                <div class="sab-more-group">
+                    <div class="sab-more-group-title" data-i18n="schedule.moreExport">导出</div>
+                    <button type="button" class="sab-btn" onclick="exportScheduleToExcel()" data-i18n="schedule.exportExcel">导出 Excel</button>
+                    <button type="button" class="sab-btn" onclick="exportScheduleToImage()" data-i18n="schedule.exportImage">导出图片</button>
+                    <button type="button" class="sab-btn sab-btn-w4" onclick="printTable()" data-i18n="schedule.print">打印</button>
+                </div>
+                <div class="sab-more-group">
+                    <div class="sab-more-group-title" data-i18n="schedule.moreEdit">编辑</div>
+                    <button type="button" class="sab-btn" onclick="clearAllCurrentTable()" data-i18n="schedule.clearAll">一键清空</button>
+                    <button type="button" class="sab-btn" onclick="saveSnapshotManual()" data-i18n="schedule.saveSnapshot" title="记录当前课表编辑状态，供 ↩ 撤销使用（不是导出文件）">保存快照</button>
+                </div>
                 <div class="sab-more-group">
                     <div class="sab-more-group-title" data-i18n="schedule.exportByTarget">按教师 / 教室导出</div>
                     <div class="tools-export-item">
@@ -4069,42 +5478,37 @@ body.light-mode .header-actions .btn-ghost{
                 </div>
             </details>
         </div>
-    </div>
-
-    <div id="conflictTip"></div>
-
-    <div class="schedule-dock panel-card">
-        <div class="schedule-dock-head" data-i18n="schedule.settings">排课设置</div>
-        <div class="dock-grid">
-            <div class="dock-field">
-                <span class="dock-label" data-i18n="schedule.view">视图</span>
-                <select id="viewSelect">
-                    <option value="classView" data-i18n="schedule.viewClass">学员组视图</option>
-                    <option value="teacherView" data-i18n="schedule.viewTeacher">教师视图</option>
-                    <option value="roomView" data-i18n="schedule.viewRoom">场地视图</option>
-                </select>
-            </div>
-            <div class="dock-field dock-field-wide">
-                <span class="dock-label" data-i18n="schedule.course">课程</span>
-                <select id="courseSelect" onfocus="exitClearCellMode()" onchange="saveLastSelectCourse(this.value)"></select>
-            </div>
-            <div class="dock-field">
-                <span class="dock-label" data-i18n="schedule.startTime">开始时间</span>
-                <select id="startTimeSelect" onchange="onScheduleTimeSelectChange()">
-                    <option value="" data-i18n="schedule.selectStart">请选择开始时间</option>
-                </select>
-            </div>
-            <div class="dock-field">
-                <span class="dock-label" data-i18n="schedule.endTime">结束时间</span>
-                <select id="endTimeSelect" onchange="onScheduleTimeSelectChange()">
-                    <option value="" data-i18n="schedule.selectEnd">请选择结束时间</option>
-                </select>
-            </div>
-            <div class="dock-field dock-field-wide" style="align-self:center;">
-                <span class="backup-hint" style="margin:0;" data-i18n="schedule.timeHint">未选手动时间时按课时自动识别；手动选择后优先生效（各课表通用）。清空起止时间可恢复自动识别。</span>
+        <div class="schedule-dock-inline">
+            <div class="dock-grid">
+                <div class="dock-field">
+                    <span class="dock-label" data-i18n="schedule.view">视图</span>
+                    <select id="viewSelect">
+                        <option value="classView" data-i18n="schedule.viewClass">学员组视图</option>
+                        <option value="teacherView" data-i18n="schedule.viewTeacher">教师视图</option>
+                        <option value="roomView" data-i18n="schedule.viewRoom">场地视图</option>
+                    </select>
+                </div>
+                <div class="dock-field dock-field-wide">
+                    <span class="dock-label" data-i18n="schedule.course">课程</span>
+                    <select id="courseSelect" onfocus="exitClearCellMode()" onchange="saveLastSelectCourse(this.value)"></select>
+                </div>
+                <div class="dock-field">
+                    <span class="dock-label" data-i18n="schedule.startTime">开始时间</span>
+                    <select id="startTimeSelect" onchange="onScheduleTimeSelectChange()">
+                        <option value="" data-i18n="schedule.selectStart">请选择开始时间</option>
+                    </select>
+                </div>
+                <div class="dock-field">
+                    <span class="dock-label" data-i18n="schedule.endTime">结束时间</span>
+                    <select id="endTimeSelect" onchange="onScheduleTimeSelectChange()">
+                        <option value="" data-i18n="schedule.selectEnd">请选择结束时间</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
+
+    <div id="conflictTip" class="conflict-tip"></div>
 
     <table id="scheduleTable">
         <thead>
@@ -4154,7 +5558,10 @@ body.light-mode .header-actions .btn-ghost{
                 <label><input type="checkbox" id="autoCheckGlobal" checked> <span data-i18n="auto.checkGlobal">检测全局冲突</span></label>
                 <label><input type="checkbox" id="autoSpreadWeek" checked> <span data-i18n="auto.spreadWeek">均匀分布到各天</span></label>
             </div>
-            <div class="auto-schedule-divider" data-i18n="auto.addConstraint">添加限制条件</div>
+            <div class="auto-schedule-divider-row">
+                <div class="auto-schedule-divider" data-i18n="auto.addConstraint">添加限制条件</div>
+                <span class="ui-hint-bubble" tabindex="0"><button type="button" class="ui-hint-trigger" aria-label="说明">i</button><span class="ui-hint-tooltip" data-i18n="auto.hint">提示：限制条件保存在当前课表中。可组合多条规则，如「某师周三不可排」「某师仅上午可排」「每日最多2节」等。</span></span>
+            </div>
             <div class="form-row auto-constraint-form">
                 <div class="constraint-item">
                     <label data-i18n="auto.constraintType">类型</label>
@@ -4224,7 +5631,6 @@ body.light-mode .header-actions .btn-ghost{
                 </thead>
                 <tbody id="constraintListBody"></tbody>
             </table>
-            <div class="backup-hint" data-i18n="auto.hint">提示：限制条件保存在当前课表中。可组合多条规则，如「某师周三不可排」「某师仅上午可排」「每日最多2节」等。</div>
         </div>
     </details>
 
@@ -4232,6 +5638,7 @@ body.light-mode .header-actions .btn-ghost{
         <summary data-i18n="backup.title">备份与恢复</summary>
         <div class="backup-panel-content">
             <div class="form-row">
+                <span class="ui-hint-bubble" tabindex="0"><button type="button" class="ui-hint-trigger" aria-label="说明">i</button><span class="ui-hint-tooltip" data-i18n="backup.hint">全量备份含所有课表与基础数据；建议定期导出 JSON 备份。</span></span>
                 <button class="btn-orange" onclick="exportAllBackup()" data-i18n="backup.exportAll">导出全部备份</button>
                 <button class="btn-orange" onclick="exportCurrentTableBackup()" data-i18n="backup.exportCurrent">导出当前课表</button>
                 <input type="file" id="allBackupFile" accept=".json">
@@ -4239,17 +5646,12 @@ body.light-mode .header-actions .btn-ghost{
                 <button class="btn-orange" onclick="importSingleTableBackup()" data-i18n="backup.importSingle">单课表导入</button>
                 <button class="btn-red" onclick="resetAllData()" data-i18n="backup.reset">重置数据</button>
             </div>
-            <div class="backup-hint" data-i18n="backup.hint">全量备份含所有课表与基础数据；建议定期导出 JSON 备份。</div>
         </div>
     </details>
 </div>
 
 <div id="tab-occupancy" class="tab-content">
-    <div class="occ-page-header">
-        <h2 data-i18n="occ.title">占用查询</h2>
-        <p data-i18n="occ.desc">跨课表查看教师 / 教室的占用与空余时段，绿色为空闲，红色区域为已排课</p>
-    </div>
-
+    <div class="tab-context-host"></div>
     <div class="occ-query-bar panel-card">
         <div class="occ-type-switch">
             <button type="button" class="occ-type-btn active" data-type="teacher" onclick="setOccQueryType('teacher')" data-i18n="occ.teacher">教师</button>
@@ -4291,6 +5693,7 @@ body.light-mode .header-actions .btn-ghost{
 </div>
 
 </main>
+</div><!-- /.app-workbench -->
 </div><!-- /.app-shell -->
 
 <div id="appDialogMask" class="modal-mask app-dialog-mask">
@@ -4445,6 +5848,7 @@ function initThemeMode(){
         : (typeof t==='function'?t('header.themeLight'):'浅色');
 }
 themeBtn.addEventListener('click',function(){
+    if(typeof closeHeaderMoreMenu === 'function') closeHeaderMoreMenu();
     document.body.classList.toggle('light-mode');
     if(document.body.classList.contains('light-mode')){
         localStorage.setItem(THEME_STORAGE_KEY,'light');
@@ -4453,6 +5857,7 @@ themeBtn.addEventListener('click',function(){
         localStorage.setItem(THEME_STORAGE_KEY,'dark');
         themeBtn.innerText = (typeof t==='function'?t('header.themeLight'):'浅色');
     }
+    if(typeof renderSchedule === 'function') renderSchedule();
 });
 
 window.onAppLanguageChange = function(){
@@ -4515,12 +5920,37 @@ initThemeMode();
 if(typeof applyI18n==='function') applyI18n();
 
 let currentActiveTab = 'time';
+function placeTableManagerBar(tabName){
+    const bar = document.getElementById('tableManagerBar');
+    if(!bar) return;
+    bar.classList.remove('tm-merged-schedule');
+    let host;
+    if(tabName === 'schedule'){
+        host = document.querySelector('#tab-schedule .schedule-action-top');
+        if(!host) return;
+        bar.classList.add('tm-merged-schedule');
+        if(bar.parentElement !== host){
+            host.insertBefore(bar, host.firstChild);
+        }
+        return;
+    }
+    const tab = document.getElementById('tab-'+tabName);
+    if(!tab) return;
+    host = tab.querySelector(':scope > .tab-context-host');
+    if(!host){
+        host = document.createElement('div');
+        host.className = 'tab-context-host';
+        tab.insertBefore(host, tab.firstChild);
+    }
+    if(bar.parentElement !== host) host.appendChild(bar);
+}
 function switchTab(tabName,btnEl){
     document.querySelectorAll('.tab-top button').forEach(btn=>btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(tab=>tab.classList.remove('active'));
     btnEl.classList.add('active');
     document.getElementById('tab-'+tabName).classList.add('active');
     currentActiveTab = tabName;
+    placeTableManagerBar(tabName);
     switch(tabName){
         case 'time': renderTime(); break;
         case 'class': renderClass(); break;
@@ -4561,6 +5991,9 @@ window.onload = async function(){
     if(typeof flushAppDataNow === 'function'){
         try{ await flushAppDataNow(); }catch(e){}
     }
+    placeTableManagerBar(currentActiveTab);
+    if(typeof initHeaderMoreMenuDismiss === 'function') initHeaderMoreMenuDismiss();
+    if(typeof initXiaoduolaMusicButton === 'function') initXiaoduolaMusicButton();
     if(typeof initLanSync === 'function') initLanSync();
     if(typeof applyAppBranding === 'function') applyAppBranding();
     renderTableTags();
@@ -4601,6 +6034,7 @@ function printTable(){
     window.print();
 }
 </script>
+<audio id="xiaoduolaAudio" src="audio/xiaoduola.mp3" preload="auto"></audio>
 <audio id="startupAudio" src="kaiji.mp3" preload="auto"></audio>
 <audio id="clickAudio" src="dianji.mp3" preload="auto"></audio>
 <script>
