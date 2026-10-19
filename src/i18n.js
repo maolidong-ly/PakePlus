@@ -47,6 +47,11 @@
             'header.userManage': '用户管理',
             'header.userManageTitle': '添加或删除用户、修改密码',
             'header.help': '说明',
+                'header.more': '其他功能',
+            'header.playStart': '播放音乐',
+            'header.playStartTitle': '播放音乐',
+            'header.stopMusic': '停止播放',
+            'header.stopMusicTitle': '停止播放音乐',
             'header.helpTitle': '说明与操作指南',
             'header.logout': '退出登录',
             'header.logoutTitle': '退出当前登录',
@@ -54,7 +59,7 @@
             'header.themeTitle': '切换主题',
             'header.themeDark': '深色',
             'header.themeLight': '浅色',
-            'header.exit': '退出',
+            'header.exit': '退出系统',
             'header.lang': 'Language',
             'header.langTitle': 'Switch language / 切换语言',
             'header.trial': '试用期',
@@ -66,6 +71,7 @@
             'tableMgr.deleteCurrent': '删除当前课表',
             'tableMgr.hint': '课表名称与班级名称一致；请在「班级」页新增或修改班级，系统自动创建/同步课表。',
             'tableMgr.storageTitle': '本地存储占用',
+            'tableMgr.storageShort': '存储',
             'tableMgr.storageClick': '点击查看备份',
             'tableMgr.storageComputing': '存储用量计算中…',
 
@@ -145,6 +151,9 @@
             'schedule.clearAll': '一键清空',
             'schedule.saveSnapshot': '保存快照',
             'schedule.exportMore': '导出教师/教室课表',
+            'schedule.more': '导出',
+            'schedule.moreEdit': '编辑',
+            'schedule.moreExport': '导出',
             'schedule.exportByTarget': '按教师 / 教室导出',
             'schedule.selectTeacher': '选择教师',
             'schedule.selectRoom': '选择教室',
@@ -430,8 +439,8 @@
             'occ.timeCol': '时段',
             'occ.spanContinue': '跨时段延续',
             'conflict.none': '✅ 全局检测完成：所有教师、教室时段无冲突',
-            'conflict.found': '❌ 全局共 {total} 处冲突，当前课表检测到 {current} 处冲突，冲突单元格已标红，可点击【查看冲突详情】按钮查看',
-            'conflict.noConflict': '暂无排课冲突，请先执行全局冲突检测',
+            'conflict.found': '❌ 全局 {total} 处冲突，当前课表 {current} 处，冲突格已标红',
+            'conflict.noConflict': '暂无排课冲突',
             'conflict.detailHeader': '===== 全局排课冲突详情（共 {n} 处）=====',
             'conflict.typeTeacher': '教师时间冲突',
             'conflict.typeRoom': '教室场地冲突',
@@ -526,6 +535,11 @@
             'header.userManage': 'Users',
             'header.userManageTitle': 'Add/remove users, change password',
             'header.help': 'Help',
+            'header.more': 'More',
+            'header.playStart': 'Play Music',
+            'header.playStartTitle': 'Play music',
+            'header.stopMusic': 'Stop',
+            'header.stopMusicTitle': 'Stop music',
             'header.helpTitle': 'Guide & Instructions',
             'header.logout': 'Log out',
             'header.logoutTitle': 'Sign out of current account',
@@ -533,7 +547,7 @@
             'header.themeTitle': 'Toggle theme',
             'header.themeDark': 'Dark',
             'header.themeLight': 'Light',
-            'header.exit': 'Exit',
+            'header.exit': 'Exit system',
             'header.lang': '中文',
             'header.langTitle': 'Switch language / 切换语言',
             'header.trial': 'Trial',
@@ -545,6 +559,7 @@
             'tableMgr.deleteCurrent': 'Delete current',
             'tableMgr.hint': 'Timetable names match class names. Add or edit classes on the Classes page; timetables sync automatically.',
             'tableMgr.storageTitle': 'Local storage usage',
+            'tableMgr.storageShort': 'Storage',
             'tableMgr.storageClick': 'Click for backup tips',
             'tableMgr.storageComputing': 'Calculating storage…',
 
@@ -624,6 +639,9 @@
             'schedule.clearAll': 'Clear all',
             'schedule.saveSnapshot': 'Save snapshot',
             'schedule.exportMore': 'Export teacher / room grids',
+            'schedule.more': 'Export',
+            'schedule.moreEdit': 'Edit',
+            'schedule.moreExport': 'Export',
             'schedule.exportByTarget': 'Export by teacher / room',
             'schedule.selectTeacher': 'Select teacher',
             'schedule.selectRoom': 'Select room',
@@ -909,8 +927,8 @@
             'occ.timeCol': 'Period',
             'occ.spanContinue': 'Continued session',
             'conflict.none': '✅ No conflicts — all teacher and room slots are clear',
-            'conflict.found': '❌ {total} conflict(s) globally, {current} in current timetable. Conflicts are highlighted in red — click Conflict details',
-            'conflict.noConflict': 'No conflicts found. Run Check conflicts first.',
+            'conflict.found': '❌ {total} conflict(s) globally, {current} in this timetable. Cells highlighted in red.',
+            'conflict.noConflict': 'No scheduling conflicts.',
             'conflict.detailHeader': '===== Conflict details ({n} total) =====',
             'conflict.typeTeacher': 'Teacher time conflict',
             'conflict.typeRoom': 'Room conflict',
@@ -1059,7 +1077,8 @@
                 opt.textContent = t(optKey);
             }
         }
-        var titleKey = document.documentElement.getAttribute('data-i18n-title-key') || 'app.docTitle';
+        if (typeof refreshXiaoduolaMusicButtonLabel === 'function') refreshXiaoduolaMusicButtonLabel();
+                var titleKey = document.documentElement.getAttribute('data-i18n-title-key') || 'app.docTitle';
         document.title = t(titleKey);
 
         var langBtn = document.getElementById('langToggleBtn');
