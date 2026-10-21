@@ -10,7 +10,7 @@ let occRoomAll = [];
 
 function setOccQueryType(type){
     occQueryType = type;
-    document.querySelectorAll('.occ-type-btn').forEach(btn=>{
+    document.querySelectorAll('#occQueryTypeSwitch .occ-type-btn').forEach(btn=>{
         btn.classList.toggle('active', btn.dataset.type === type);
     });
     const teacherWrap = document.getElementById('occTeacherWrap');
@@ -20,9 +20,17 @@ function setOccQueryType(type){
     renderOccupancyQuery();
 }
 
+function setOccScope(scope){
+    const value = scope === 'current' ? 'current' : 'all';
+    document.querySelectorAll('#occScopeSwitch .occ-type-btn').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.scope === value);
+    });
+    if(typeof onOccQueryChange === 'function') onOccQueryChange();
+}
+
 function getOccScope(){
-    const el = document.querySelector('input[name="occScope"]:checked');
-    return el ? el.value : 'all';
+    const btn = document.querySelector('#occScopeSwitch .occ-type-btn.active');
+    return btn && btn.dataset.scope === 'current' ? 'current' : 'all';
 }
 
 function collectAllAssignments(scope){
