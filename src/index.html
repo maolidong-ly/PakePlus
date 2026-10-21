@@ -916,7 +916,7 @@ body.light-mode .schedule-dock{
     font-size: 14px;
     font-weight: 600;
     color: var(--text-muted);
-    text-align: center;
+    text-align: left;
 }
 .dock-field select{
     width: 100%;
@@ -935,15 +935,198 @@ body.light-mode .schedule-dock{
 }
 .schedule-dock .dock-field select,
 .schedule-dock-inline .dock-field select{
-    text-align: center;
-    text-align-last: center;
-    padding-left: 26px;
-    padding-right: 26px;
+    text-align: left;
+    text-align-last: left;
+    padding-left: 10px;
+    padding-right: 28px;
 }
 .schedule-dock .dock-field select option,
 .schedule-dock-inline .dock-field select option{
+    text-align: left;
+    text-align-last: left;
+    direction: ltr;
+    padding-left: 8px;
+}
+html.os-windows .schedule-dock-inline .dock-field select option,
+html.os-windows .schedule-dock .dock-field select option{
+    text-align: left !important;
+    direction: ltr;
+}
+/* 课程下拉：框内文字居中，展开列表仍左对齐（长文案） */
+.schedule-dock-inline #courseSelect,
+.schedule-dock #courseSelect{
     text-align: center;
     text-align-last: center;
+    padding-left: 28px;
+    padding-right: 28px;
+}
+.schedule-dock-inline #courseSelect option,
+.schedule-dock #courseSelect option{
+    text-align: left;
+    text-align-last: left;
+}
+html.os-windows .schedule-dock-inline #courseSelect option,
+html.os-windows .schedule-dock #courseSelect option{
+    text-align: left !important;
+    text-align-last: left !important;
+}
+/* 视图 / 起止时间：自定义下拉，列表项居中 */
+.dock-pick-wrap{
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+.dock-pick-native{
+    position: absolute !important;
+    left: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    visibility: hidden !important;
+}
+.schedule-dock-inline .dock-field select,
+.schedule-dock .dock-field select{
+    min-height: 36px;
+    height: 36px;
+    box-sizing: border-box;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 34px;
+}
+.schedule-dock-inline #courseSelect,
+.schedule-dock #courseSelect{
+    padding-left: 28px;
+    padding-right: 28px;
+}
+.dock-pick-trigger{
+    width: 100%;
+    min-height: 36px;
+    height: 36px;
+    box-sizing: border-box;
+    padding: 0 28px;
+    line-height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    color: var(--text-color);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.dock-pick-trigger:hover{
+    border-color: var(--border-hover);
+}
+.dock-pick-trigger:focus{
+    outline: none;
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+body.light-mode .dock-pick-trigger{
+    background: var(--chrome-surface, #f4f5f7);
+    border-color: var(--chrome-line, rgba(15, 23, 42, 0.08));
+    color: #1d1d1f;
+}
+body.light-mode .dock-pick-trigger:focus{
+    background: #fff;
+    border-color: rgba(15, 118, 110, 0.35);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+}
+.dock-pick-menu{
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 5000;
+    max-height: 240px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #121826;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+    box-sizing: border-box;
+    isolation: isolate;
+}
+body.light-mode .dock-pick-menu{
+    background: #ffffff !important;
+    border-color: rgba(15, 23, 42, 0.12);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+}
+.schedule-dock-inline{
+    position: relative;
+    z-index: 20;
+}
+.schedule-dock-inline:has(.dock-pick-menu:not([hidden])){
+    z-index: 5100;
+}
+.dock-pick-item-placeholder{
+    color: var(--text-muted);
+    font-weight: 500;
+}
+body.light-mode .dock-pick-item-placeholder{
+    color: #64748b;
+}
+.dock-pick-menu[hidden]{
+    display: none !important;
+}
+body > .dock-pick-menu{
+    z-index: 2147483000 !important;
+}
+.dock-pick-item{
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    background: #121826;
+    color: var(--text-color);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font-ui);
+    text-align: center;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+body.light-mode .dock-pick-item{
+    background: #ffffff;
+    color: #0f172a;
+}
+.dock-pick-item:hover,
+.dock-pick-item:focus{
+    background: #1a2438;
+    outline: none;
+}
+body.light-mode .dock-pick-item:hover,
+body.light-mode .dock-pick-item:focus{
+    background: #f0f4ff;
+}
+.dock-pick-item.is-active{
+    background: #1e3a5f;
+    font-weight: 600;
+}
+body.light-mode .dock-pick-item.is-active{
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+.dock-pick-wrap:focus-within{
+    z-index: 1300;
+}
+.dock-pick-wrap:has(.dock-pick-menu:not([hidden])){
+    z-index: 5210;
 }
 @media (max-width: 960px){
     .dock-grid{
@@ -1132,8 +1315,8 @@ body.light-mode .schedule-dock{
     color: #fff;
 }
 .tm-table-select{
-    min-width: 160px;
-    max-width: 280px;
+    min-width: 180px;
+    max-width: min(320px, 48vw);
     font-weight: 600;
 }
 
@@ -1196,8 +1379,8 @@ body.light-mode .schedule-dock{
 }
 .table-manager .tm-table-select{
     flex: 0 1 auto;
-    min-width: 132px;
-    max-width: min(220px, 36vw);
+    min-width: 168px;
+    max-width: min(320px, 48vw);
 }
 .table-manager .tm-count-hint{
     flex: 0 0 auto;
@@ -1342,10 +1525,29 @@ body.light-mode .tm-storage-text.danger{color:#dc2626;}
 .schedule-workspace.panel-card:has(.sab-more[open]){
     z-index: 80;
 }
+.schedule-workspace.panel-card:has(.dock-pick-menu:not([hidden])){
+    z-index: 5200;
+}
+/* 无 panel-card 时同样抬层，避免下拉被下方 #conflictTip / 课表 sibling 盖住 */
+.schedule-workspace{
+    position: relative;
+    overflow: visible !important;
+}
+.schedule-workspace:has(.dock-pick-menu:not([hidden])){
+    z-index: 5200;
+}
+#tab-schedule:has(.dock-pick-menu:not([hidden])) #conflictTip{
+    position: relative;
+    z-index: 0;
+}
 .schedule-dock-inline{
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid var(--border);
+    overflow: visible;
+}
+.schedule-dock-inline .dock-field{
+    overflow: visible;
 }
 .schedule-dock-inline .dock-grid{
     gap: 8px 10px;
@@ -1760,6 +1962,21 @@ body.light-mode .btn-green{
     color:var(--text-muted);
     letter-spacing:0.2px;
 }
+#tab-class #className{
+    min-width: 300px;
+    width: min(320px, 48vw);
+    box-sizing: border-box;
+}
+#tab-class #newClassGrade,
+#tab-class #newClassTimeTemplate{
+    min-width: 132px;
+    max-width: 180px;
+}
+#tab-class .form-row label{
+    width: auto;
+    min-width: 0;
+    flex-shrink: 0;
+}
 .section-divider{
     border-top:1px solid var(--border) !important;
     margin-top:14px !important;
@@ -1816,6 +2033,16 @@ body.light-mode .schedule-dock .tab-style-btn:hover{
 .form-row.form-row-with-backup{
     flex-wrap:wrap;
     align-items:center;
+}
+.form-row.form-row-data-io{
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px 12px;
+    padding:12px 18px;
+    margin-top:0;
+}
+.form-row.form-row-data-io input[type="file"]{
+    max-width:min(320px, 52vw);
 }
 .form-row.form-row-with-backup > .backup-collapse{
     margin:0 0 0 auto;
@@ -1926,7 +2153,29 @@ body.light-mode .schedule-dock .tab-style-btn:hover{
     padding:0 14px 14px;
     border-top:1px solid var(--border);
 }
-.course-group-body table{margin-top:10px;}
+.course-group-body table{
+    margin-top:10px;
+    table-layout:fixed;
+    width:100%;
+}
+.course-group-body table .course-col-idx{width:64px;}
+.course-group-body table .course-col-name{width:18%;}
+.course-group-body table .course-col-teacher{width:16%;}
+.course-group-body table .course-col-room{width:14%;}
+.course-group-body table .course-col-class{width:18%;}
+.course-group-body table .course-col-action{width:96px;}
+.course-group-body table select.course-cell-select{
+    width:100%;
+    max-width:100%;
+    box-sizing:border-box;
+    height:auto;
+    min-height:0;
+    max-height:none;
+    line-height:1.35;
+    padding:4px 8px;
+    font-size:13px;
+    vertical-align:middle;
+}
 .course-empty-hint{
     text-align:center;
     padding:40px;
@@ -2320,7 +2569,10 @@ body.light-mode .conflict-tip-ok{
 .auto-constraint-form .constraint-item select{
     min-width:120px;
     max-width:180px;
-    padding:7px 10px !important;
+    padding-top:0 !important;
+    padding-bottom:0 !important;
+    padding-left:10px !important;
+    padding-right:28px !important;
     font-size:13px !important;
 }
 .auto-constraint-form .constraint-item-wide{
@@ -2338,6 +2590,49 @@ body.light-mode .conflict-tip-ok{
     gap:6px;
     align-items:center;
     flex:1;
+}
+.constraint-by-day-panel{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    flex:1;
+    min-width:0;
+    width:100%;
+}
+.constraint-day-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 10px;
+    align-items:flex-start;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--bg-elevated);
+}
+.constraint-day-row.inactive .constraint-day-slots{
+    opacity:0.42;
+    pointer-events:none;
+}
+.constraint-day-title{
+    flex:0 0 auto;
+    min-width:92px;
+    font-size:12px;
+    font-weight:600;
+    color:var(--text-color);
+    padding-top:4px;
+}
+.constraint-day-title label{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    margin:0;
+    width:auto !important;
+    min-width:0;
+}
+.constraint-day-slots{
+    flex:1 1 280px;
+    min-width:0;
 }
 .constraint-chip{
     display:inline-flex;
@@ -2402,6 +2697,102 @@ body.light-mode .auto-schedule-options label{color:#334155;}
     padding:14px 16px;
     margin-bottom:12px;
 }
+/* 查询页：课表栏 + 占用条件合并为一行 */
+#tab-occupancy > .tab-context-host.occ-toolbar-unified{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px 14px;
+    padding:12px 0;
+    margin-bottom:12px;
+}
+#tab-occupancy .occ-toolbar-unified .table-manager{
+    flex:0 1 auto;
+    min-width:0;
+}
+#tab-occupancy .occ-toolbar-unified .table-manager .tm-toolbar{
+    flex-wrap:nowrap;
+    gap:10px;
+}
+#tab-occupancy .occ-toolbar-unified .occ-query-bar{
+    flex:1 1 420px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px 12px;
+    margin:0;
+    padding:0;
+    min-width:0;
+}
+#tab-occupancy .occ-toolbar-unified .occ-query-bar::before{
+    content:"";
+    width:1px;
+    height:22px;
+    background:var(--border);
+    flex-shrink:0;
+    margin-right:2px;
+}
+body.light-mode #tab-occupancy .occ-toolbar-unified .occ-query-bar::before{
+    background:rgba(0,0,0,0.08);
+}
+#tab-occupancy .occ-toolbar-unified .tm-search-wrap,
+#tab-occupancy .occ-toolbar-unified .occ-search-wrap{
+    width:148px;
+    max-width:148px;
+    min-width:148px;
+    flex:0 0 148px;
+}
+#tab-occupancy .occ-toolbar-unified .tm-table-select,
+#tab-occupancy .occ-toolbar-unified .occ-target-wrap select{
+    box-sizing:border-box;
+    width:168px;
+    min-width:168px;
+    max-width:168px;
+    flex:0 0 168px;
+}
+#tab-occupancy .occ-toolbar-unified .tm-search-wrap .search-input,
+#tab-occupancy .occ-toolbar-unified .occ-search-wrap .search-input,
+#tab-occupancy .occ-toolbar-unified .tm-table-select,
+#tab-occupancy .occ-toolbar-unified .occ-target-wrap select{
+    height:36px;
+    min-height:36px;
+    max-height:36px;
+    padding-top:0;
+    padding-bottom:0;
+    line-height:34px;
+    font-size:13px;
+    vertical-align:middle;
+}
+#tab-occupancy .occ-toolbar-unified .tm-search-wrap .search-input{
+    padding-left:12px;
+    padding-right:12px;
+}
+#tab-occupancy .occ-toolbar-unified .occ-search-wrap .search-input{
+    padding-left:32px;
+    padding-right:12px;
+}
+#tab-occupancy .occ-toolbar-unified .tm-table-select,
+#tab-occupancy .occ-toolbar-unified .occ-target-wrap select{
+    padding-left:12px;
+    padding-right:28px;
+}
+#tab-occupancy .occ-toolbar-unified .occ-type-switch,
+#tab-occupancy .occ-toolbar-unified #occScopeSwitch{
+    height:36px;
+    box-sizing:border-box;
+}
+#tab-occupancy .occ-toolbar-unified .occ-type-btn{
+    height:100%;
+    padding:0 18px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    box-sizing:border-box;
+}
+#tab-occupancy .occ-toolbar-unified #occScopeSwitch .occ-type-btn{
+    padding:0 14px;
+    font-size:13px;
+}
 .occ-type-switch{
     display:inline-flex;
     border:1px solid var(--border);
@@ -2453,15 +2844,18 @@ body.light-mode .auto-schedule-options label{color:#334155;}
 .occ-scope{
     display:flex;
     align-items:center;
-    gap:12px;
+    gap:8px;
     font-size:13px;
     color:var(--text-muted);
 }
-.occ-scope label{
-    display:inline-flex;
-    align-items:center;
-    gap:5px;
-    cursor:pointer;
+.occ-scope-label{
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-muted);
+    white-space:nowrap;
+}
+body.light-mode .occ-scope-label{
+    color:#64748b;
 }
 .occ-summary{
     display:flex;
@@ -4107,6 +4501,8 @@ body.light-mode .schedule-action-bar .sab-btn-primary{
 
 /* 冲突提示：左侧色条，不要满框线 */
 #conflictTip{
+    position: relative;
+    z-index: 1;
     border: none !important;
     border-left: 3px solid rgba(239,68,68,0.75) !important;
     border-radius: 0 8px 8px 0 !important;
@@ -4331,7 +4727,7 @@ body.light-mode .header-actions .btn-ghost{
 }
 .schedule-dock-inline{
     position: relative;
-    z-index: 0;
+    z-index: 20;
 }
 body.light-mode .table-manager .ui-hint-tooltip,
 body.light-mode .tab-context-host .ui-hint-tooltip,
@@ -4651,7 +5047,23 @@ body.light-mode .ui-hint-tooltip::after{
     flex: 0 0 120px;
 }
 #tableManagerBar.tm-merged-schedule .tm-table-select{
-    max-width: 160px;
+    min-width: 180px;
+    max-width: min(300px, 46vw);
+    color: #6d28d9 !important;
+    -webkit-text-fill-color: #6d28d9 !important;
+    font-weight: 700;
+}
+body:not(.light-mode) #tableManagerBar.tm-merged-schedule .tm-table-select{
+    color: #c4b5fd !important;
+    -webkit-text-fill-color: #c4b5fd !important;
+}
+html.os-windows body.light-mode #tableManagerBar.tm-merged-schedule .tm-table-select{
+    color: #6d28d9 !important;
+    -webkit-text-fill-color: #6d28d9 !important;
+}
+html.os-windows body:not(.light-mode) #tableManagerBar.tm-merged-schedule .tm-table-select{
+    color: #ddd6fe !important;
+    -webkit-text-fill-color: #ddd6fe !important;
 }
 @media (max-width: 1100px){
     #tableManagerBar.tm-merged-schedule .tm-toolbar{
@@ -4663,6 +5075,60 @@ body.light-mode .ui-hint-tooltip::after{
 }
 .app-workbench .main-panel{
     padding: 6px 18px 20px;
+}
+/* 全 Tab：搜索框 / 下拉框统一 36px 高（课表栏、表单行、检索行、排课 dock、查询栏等） */
+.app-workbench .main-panel .tab-content .form-row input[type="text"],
+.app-workbench .main-panel .tab-content .form-row select:not([multiple]),
+.app-workbench .main-panel .tab-content .list-search-bar .search-input,
+.app-workbench .main-panel .tab-content .course-group-toolbar .search-input,
+.app-workbench .main-panel .tab-content .course-group-toolbar select,
+.app-workbench .main-panel .tab-content .tab-context-host .tm-search-wrap .search-input,
+.app-workbench .main-panel .tab-content .tab-context-host .tm-table-select,
+.app-workbench .main-panel .tab-content .tab-context-host select.status-select,
+.app-workbench .main-panel #tab-schedule .schedule-action-top-merged .tm-search-wrap .search-input,
+.app-workbench .main-panel #tab-schedule .schedule-action-top-merged .tm-table-select,
+.app-workbench .main-panel .schedule-dock-inline select,
+.app-workbench .main-panel .schedule-dock-inline .dock-pick-trigger,
+.app-workbench .main-panel .tools-export-item select,
+.app-workbench .main-panel .auto-schedule-panel select,
+.app-workbench .main-panel .auto-constraint-form select,
+.app-workbench .main-panel #tab-occupancy .occ-search-wrap .search-input,
+.app-workbench .main-panel #tab-occupancy .occ-target-wrap select{
+    box-sizing: border-box;
+    height: 36px;
+    min-height: 36px;
+    max-height: 36px;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 34px;
+    font-size: 13px;
+    vertical-align: middle;
+}
+.app-workbench .main-panel .tab-content .tab-context-host .tm-search-wrap .search-input,
+.app-workbench .main-panel #tab-schedule .schedule-action-top-merged .tm-search-wrap .search-input,
+.app-workbench .main-panel .tab-content .form-row input[type="text"]{
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.app-workbench .main-panel .tab-content .list-search-bar .search-input,
+.app-workbench .main-panel .tab-content .course-group-toolbar .search-wrap .search-input,
+.app-workbench .main-panel #tab-occupancy .occ-search-wrap .search-input{
+    padding-left: 38px;
+    padding-right: 12px;
+}
+.app-workbench .main-panel .tab-content .form-row select,
+.app-workbench .main-panel .tab-content .course-group-toolbar select,
+.app-workbench .main-panel .tab-content .tab-context-host select,
+.app-workbench .main-panel .tools-export-item select,
+.app-workbench .main-panel .auto-schedule-panel select,
+.app-workbench .main-panel .auto-constraint-form select,
+.app-workbench .main-panel #tab-occupancy .occ-target-wrap select{
+    padding-left: 10px;
+    padding-right: 28px;
+}
+.app-workbench .main-panel .schedule-dock-inline #courseSelect{
+    padding-left: 28px;
+    padding-right: 28px;
 }
 .app-workbench .main-panel .tab-content .form-row,
 .app-workbench .main-panel .tab-content .list-search-bar,
@@ -4954,9 +5420,15 @@ body.light-mode .schedule-dock .dock-label{
     font-size: 17px;
     padding: 12px 10px;
 }
+.schedule-dock-inline .dock-field,
+.schedule-dock .dock-field{
+    align-items: stretch;
+}
 .schedule-dock-inline .dock-label,
 .schedule-dock .dock-label{
     font-size: 14px;
+    width: 100%;
+    text-align: center;
 }
 body.light-mode .schedule-dock-inline .dock-field select,
 body.light-mode .schedule-dock .dock-field select{
@@ -5264,17 +5736,19 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
         </select>
         <button class="btn-blue" onclick="addTime()" data-i18n="time.add">添加课时</button>
     </div>
-    <div class="form-row">
+    <div class="form-row time-template-bar">
         <label data-i18n="time.template">课时模版：</label>
-        <select id="timeTemplateSelect" onchange="onTimeTemplateSelectChange()" oninput="onTimeTemplateSelectChange()">
+        <select id="timeTemplateSelect" onchange="onTimeTemplateSelectChange()">
             <option value="" data-i18n="time.templateSelect">选择已保存模版</option>
         </select>
-        <button class="btn-blue" onclick="createNewTimeTemplate()" data-i18n="time.newTpl">新建模版</button>
-        <button class="btn-green" onclick="saveTimeAsTemplate()" data-i18n="time.saveTpl">保存模版</button>
-        <button class="btn-orange" onclick="exportTimeTemplatesForPack()" data-i18n="time.exportTpl">导出模版文件</button>
-        <button class="btn-blue" onclick="renameTimeTemplate()" data-i18n="time.rename">重命名</button>
-        <button class="btn-red" onclick="delTimeTemplate()" data-i18n="time.deleteTpl">删除</button>
+        <button class="btn-blue" onclick="createNewTimeTemplate()" data-i18n="time.newTpl">新建</button>
+        <button class="btn-green" onclick="saveTimeAsTemplate()" data-i18n="time.saveTpl">保存</button>
+        <button class="btn-orange" onclick="applyTimeTemplate()" data-i18n="time.applyTpl">应用到课表</button>
+        <button type="button" class="btn-blue" onclick="renameTimeTemplate()" data-i18n="time.rename">重命名</button>
+        <button type="button" class="btn-red" onclick="delTimeTemplate()" data-i18n="time.deleteTpl">删除</button>
+        <button type="button" class="btn-orange" onclick="exportTimeTemplatesForPack()" data-i18n="time.exportTpl">导出模版文件</button>
     </div>
+    <p id="timeTemplateModeHint" class="ui-hint-line" style="display:none;margin:0 0 10px 0;color:var(--text-muted);font-size:13px;"></p>
     <table>
         <thead>
         <tr>
@@ -5289,24 +5763,24 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
 
 <div id="tab-class" class="tab-content">
     <div class="tab-context-host"></div>
-    <div class="form-row form-row-with-backup">
+    <div class="form-row">
         <label data-i18n="class.name">班级名称：</label>
         <input type="text" id="className" placeholder="输入班级名称（即课表名称）" data-i18n-placeholder="class.namePlaceholder">
+        <label data-i18n="class.grade">年级：</label>
+        <select id="newClassGrade" title="年级" data-i18n-title="class.gradeTitle">
+            <option value="" data-i18n="class.gradePlaceholder">请选择年级</option>
+        </select>
         <select id="newClassTimeTemplate" title="课时模版" data-i18n-title="class.timeTplTitle">
             <option value="default" data-i18n="class.defaultTime">默认课时</option>
         </select>
         <button class="btn-blue" onclick="addClass()" data-i18n="class.add">新增班级</button>
         <span class="ui-hint-bubble" tabindex="0"><button type="button" class="ui-hint-trigger" aria-label="说明">i</button><span class="ui-hint-tooltip" data-i18n="class.hint">新增班级后自动创建同名课表，无需再单独新建课表</span></span>
-        <details class="backup-collapse">
-            <summary data-i18n="common.backupImport">备份 / 导入</summary>
-            <div class="backup-panel-content">
-                <div class="form-row">
-                    <button class="btn-orange" onclick="exportClassBackup()" data-i18n="class.export">导出班级</button>
-                    <input type="file" id="classBackupFile" accept=".json">
-                    <button class="btn-orange" onclick="importClassBackup()" data-i18n="class.import">导入班级</button>
-                </div>
-            </div>
-        </details>
+    </div>
+    <div class="form-row form-row-data-io">
+        <button class="btn-orange" type="button" onclick="exportClassBackupExcel()" data-i18n="common.exportExcel">导出 Excel</button>
+        <button class="btn-ghost" type="button" onclick="exportClassBackupJson()" data-i18n="common.exportJson">导出 JSON</button>
+        <input type="file" id="classBackupFile" accept=".json,.xls,application/vnd.ms-excel" title="JSON 或 Excel（.xls）" data-i18n-title="common.importFormatHint">
+        <button class="btn-orange" type="button" onclick="importClassBackup()" data-i18n="class.import">导入班级</button>
     </div>
     <div class="form-row list-search-bar">
         <label data-i18n="common.search">检索</label>
@@ -5320,6 +5794,7 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
         <tr>
             <th data-i18n="common.index">序号</th>
             <th data-i18n="class.colName">班级名称</th>
+            <th data-i18n="class.colGrade">年级</th>
             <th data-i18n="common.action">操作</th>
         </tr>
         </thead>
@@ -5329,20 +5804,16 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
 
 <div id="tab-teacher" class="tab-content">
     <div class="tab-context-host"></div>
-    <div class="form-row form-row-with-backup">
+    <div class="form-row">
         <label data-i18n="teacher.name">教师姓名：</label>
         <input type="text" id="teacherName" placeholder="输入教师姓名" data-i18n-placeholder="teacher.namePlaceholder">
         <button class="btn-blue" onclick="addTeacher()" data-i18n="teacher.add">新增教师</button>
-        <details class="backup-collapse">
-            <summary data-i18n="common.backupImport">备份 / 导入</summary>
-            <div class="backup-panel-content">
-                <div class="form-row">
-                    <button class="btn-orange" onclick="exportTeacherBackup()" data-i18n="teacher.export">导出教师</button>
-                    <input type="file" id="teacherBackupFile" accept=".json">
-                    <button class="btn-orange" onclick="importTeacherBackup()" data-i18n="teacher.import">导入教师</button>
-                </div>
-            </div>
-        </details>
+    </div>
+    <div class="form-row form-row-data-io">
+        <button class="btn-orange" type="button" onclick="exportTeacherBackupExcel()" data-i18n="common.exportExcel">导出 Excel</button>
+        <button class="btn-ghost" type="button" onclick="exportTeacherBackupJson()" data-i18n="common.exportJson">导出 JSON</button>
+        <input type="file" id="teacherBackupFile" accept=".json,.xls,application/vnd.ms-excel" title="JSON 或 Excel（.xls）" data-i18n-title="common.importFormatHint">
+        <button class="btn-orange" type="button" onclick="importTeacherBackup()" data-i18n="teacher.import">导入教师</button>
     </div>
     <div class="form-row list-search-bar">
         <label data-i18n="common.search">检索</label>
@@ -5365,20 +5836,16 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
 
 <div id="tab-room" class="tab-content">
     <div class="tab-context-host"></div>
-    <div class="form-row form-row-with-backup">
+    <div class="form-row">
         <label data-i18n="room.name">教室名称：</label>
         <input type="text" id="roomName" placeholder="输入教室名称" data-i18n-placeholder="room.namePlaceholder">
         <button class="btn-blue" onclick="addRoom()" data-i18n="room.add">新增教室</button>
-        <details class="backup-collapse">
-            <summary data-i18n="common.backupImport">备份 / 导入</summary>
-            <div class="backup-panel-content">
-                <div class="form-row">
-                    <button class="btn-orange" onclick="exportRoomBackup()" data-i18n="room.export">导出教室</button>
-                    <input type="file" id="roomBackupFile" accept=".json">
-                    <button class="btn-orange" onclick="importRoomBackup()" data-i18n="room.import">导入教室</button>
-                </div>
-            </div>
-        </details>
+    </div>
+    <div class="form-row form-row-data-io">
+        <button class="btn-orange" type="button" onclick="exportRoomBackupExcel()" data-i18n="common.exportExcel">导出 Excel</button>
+        <button class="btn-ghost" type="button" onclick="exportRoomBackupJson()" data-i18n="common.exportJson">导出 JSON</button>
+        <input type="file" id="roomBackupFile" accept=".json,.xls,application/vnd.ms-excel" title="JSON 或 Excel（.xls）" data-i18n-title="common.importFormatHint">
+        <button class="btn-orange" type="button" onclick="importRoomBackup()" data-i18n="room.import">导入教室</button>
     </div>
     <table>
         <thead>
@@ -5394,7 +5861,7 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
 
 <div id="tab-course" class="tab-content">
     <div class="tab-context-host"></div>
-    <div class="form-row form-row-with-backup">
+    <div class="form-row">
         <label data-i18n="course.name">课程名称：</label>
         <select id="courseNameSelect">
             <option value="" data-i18n="course.selectName">请选择课程名称</option>
@@ -5409,16 +5876,12 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
             <option value="" data-i18n="course.selectClass">选择学员组</option>
         </select>
         <button class="btn-blue" onclick="addCourse()" data-i18n="course.add">新增课程</button>
-        <details class="backup-collapse">
-            <summary data-i18n="common.backupImport">备份 / 导入</summary>
-            <div class="backup-panel-content">
-                <div class="form-row">
-                    <button class="btn-orange" onclick="exportCourseBackup()" data-i18n="course.export">导出课程</button>
-                    <input type="file" id="courseBackupFile" accept=".json">
-                    <button class="btn-orange" onclick="importCourseBackup()" data-i18n="course.import">导入课程数据</button>
-                </div>
-            </div>
-        </details>
+    </div>
+    <div class="form-row form-row-data-io">
+        <button class="btn-orange" type="button" onclick="exportCourseBackupExcel()" data-i18n="common.exportExcel">导出 Excel</button>
+        <button class="btn-ghost" type="button" onclick="exportCourseBackupJson()" data-i18n="common.exportJson">导出 JSON</button>
+        <input type="file" id="courseBackupFile" accept=".json,.xls,application/vnd.ms-excel" title="JSON 或 Excel（.xls）" data-i18n-title="common.importFormatHint">
+        <button class="btn-orange" type="button" onclick="importCourseBackup()" data-i18n="course.import">导入课程数据</button>
     </div>
     <div class="form-row course-group-toolbar">
         <label data-i18n="course.groupBy">分组维度：</label>
@@ -5446,7 +5909,7 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
                 <button type="button" class="sab-btn sab-btn-icon" onclick="redoStep()" title="下一步" data-i18n-title="schedule.redo">↪</button>
                 <span class="sab-sep"></span>
                 <button type="button" class="sab-btn sab-btn-primary" onclick="clearCell()" data-i18n="schedule.clearCell">清空单元格</button>
-                <button type="button" id="btnConflictDetailBar" class="sab-btn sab-btn-conflict" style="display:none" onclick="showConflictDetail()" data-i18n="schedule.conflictDetail">查看冲突详情</button>
+                <button type="button" id="btnConflictDetailBar" class="sab-btn sab-btn-conflict" onclick="showConflictDetail()" data-i18n="schedule.conflictDetail">查看冲突详情</button>
             </div>
             <details class="sab-more">
                 <summary data-i18n="schedule.more">导出</summary>
@@ -5482,11 +5945,13 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
             <div class="dock-grid">
                 <div class="dock-field">
                     <span class="dock-label" data-i18n="schedule.view">视图</span>
-                    <select id="viewSelect">
+                    <div class="dock-pick-wrap">
+                    <select id="viewSelect" class="dock-pick-native" tabindex="-1" aria-hidden="true">
                         <option value="classView" data-i18n="schedule.viewClass">学员组视图</option>
                         <option value="teacherView" data-i18n="schedule.viewTeacher">教师视图</option>
                         <option value="roomView" data-i18n="schedule.viewRoom">场地视图</option>
                     </select>
+                    </div>
                 </div>
                 <div class="dock-field dock-field-wide">
                     <span class="dock-label" data-i18n="schedule.course">课程</span>
@@ -5494,15 +5959,19 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
                 </div>
                 <div class="dock-field">
                     <span class="dock-label" data-i18n="schedule.startTime">开始时间</span>
-                    <select id="startTimeSelect" onchange="onScheduleTimeSelectChange()">
+                    <div class="dock-pick-wrap">
+                    <select id="startTimeSelect" class="dock-pick-native" tabindex="-1" aria-hidden="true" onchange="onScheduleTimeSelectChange()">
                         <option value="" data-i18n="schedule.selectStart">请选择开始时间</option>
                     </select>
+                    </div>
                 </div>
                 <div class="dock-field">
                     <span class="dock-label" data-i18n="schedule.endTime">结束时间</span>
-                    <select id="endTimeSelect" onchange="onScheduleTimeSelectChange()">
+                    <div class="dock-pick-wrap">
+                    <select id="endTimeSelect" class="dock-pick-native" tabindex="-1" aria-hidden="true" onchange="onScheduleTimeSelectChange()">
                         <option value="" data-i18n="schedule.selectEnd">请选择结束时间</option>
                     </select>
+                    </div>
                 </div>
             </div>
         </div>
@@ -5533,30 +6002,20 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
                 <label data-i18n="auto.teacher">教师</label>
                 <select id="autoTeacherSelect" onchange="refreshAutoCourseSelect()"></select>
                 <label data-i18n="auto.count">次数</label>
-                <select id="autoSessionCount">
-                    <option value="1" data-i18n="auto.sessions" data-i18n-n="1">1 节</option>
-                    <option value="2" data-i18n="auto.sessions" data-i18n-n="2">2 节</option>
-                    <option value="3" data-i18n="auto.sessions" data-i18n-n="3">3 节</option>
-                    <option value="4" data-i18n="auto.sessions" data-i18n-n="4">4 节</option>
-                    <option value="5" selected data-i18n="auto.sessions" data-i18n-n="5">5 节</option>
-                    <option value="6" data-i18n="auto.sessions" data-i18n-n="6">6 节</option>
-                    <option value="8" data-i18n="auto.sessions" data-i18n-n="8">8 节</option>
-                    <option value="10" data-i18n="auto.sessions" data-i18n-n="10">10 节</option>
-                    <option value="12" data-i18n="auto.sessions" data-i18n-n="12">12 节</option>
-                    <option value="15" data-i18n="auto.sessions" data-i18n-n="15">15 节</option>
-                    <option value="20" data-i18n="auto.sessions" data-i18n-n="20">20 节</option>
-                </select>
+                <select id="autoSessionCount"></select>
                 <label data-i18n="auto.course">课程</label>
                 <select id="autoCourseSelect">
                     <option value="" data-i18n="auto.matchCourse">自动匹配课程</option>
                 </select>
                 <button class="btn-blue" onclick="runAutoScheduleForTeacher()" data-i18n="auto.run">执行自动排课</button>
+                <button class="btn-green" onclick="runAutoScheduleForAllTeachers()" data-i18n="auto.runAll">一键排全部教师</button>
                 <button class="btn-ghost" onclick="clearTeacherInCurrentTable()" data-i18n="auto.clearTeacher">清除该师排课</button>
             </div>
             <div class="form-row auto-schedule-options">
                 <label><input type="checkbox" id="autoOnlyEmpty" checked> <span data-i18n="auto.onlyEmpty">仅填空白格</span></label>
                 <label><input type="checkbox" id="autoCheckGlobal" checked> <span data-i18n="auto.checkGlobal">检测全局冲突</span></label>
                 <label><input type="checkbox" id="autoSpreadWeek" checked> <span data-i18n="auto.spreadWeek">均匀分布到各天</span></label>
+                <label><input type="checkbox" id="autoAllowRepack" checked> <span data-i18n="auto.allowRepack">排不满时挪动其它课</span></label>
             </div>
             <div class="auto-schedule-divider-row">
                 <div class="auto-schedule-divider" data-i18n="auto.addConstraint">添加限制条件</div>
@@ -5565,7 +6024,7 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
             <div class="form-row auto-constraint-form">
                 <div class="constraint-item">
                     <label data-i18n="auto.constraintType">类型</label>
-                    <select id="constraintType" onchange="updateConstraintFieldsVisibility()">
+                    <select id="constraintType" onchange="onConstraintTypeChange()">
                         <option value="teacher_unavailable" data-i18n="auto.teacherUnavailable">教师不可上课</option>
                         <option value="teacher_available_only" data-i18n="auto.teacherAvailableOnly">教师仅可上课时段</option>
                         <option value="room_unavailable" data-i18n="auto.roomUnavailable">教室不可使用</option>
@@ -5576,13 +6035,13 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
                 </div>
                 <span id="constraintTeacherWrap" class="constraint-field-wrap constraint-item">
                     <label data-i18n="auto.teacher">教师</label>
-                    <select id="constraintTeacher"></select>
+                    <select id="constraintTeacher" onchange="onConstraintTeacherChange()"></select>
                 </span>
                 <span id="constraintRoomWrap" class="constraint-field-wrap constraint-item" style="display:none">
                     <label data-i18n="auto.room">教室</label>
-                    <select id="constraintRoom"></select>
+                    <select id="constraintRoom" onchange="onConstraintRoomChange()"></select>
                 </span>
-                <div class="constraint-item constraint-item-wide">
+                <div class="constraint-item constraint-item-wide" id="constraintWeeksSimpleWrap" style="display:none">
                     <label data-i18n="auto.week">星期</label>
                     <div class="constraint-checkgroup" id="constraintWeeksGroup">
                         <label class="constraint-chip active" id="constraintWeekAllLabel"><input type="checkbox" id="constraintWeekAll" checked onchange="toggleConstraintWeekAll(this)"> <span data-i18n="common.all">全部</span></label>
@@ -5595,11 +6054,9 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
                         <label class="constraint-chip"><input type="checkbox" class="constraint-week-cb" value="6" onchange="onConstraintWeekPick()"> <span data-i18n="week.sun">周日</span></label>
                     </div>
                 </div>
-                <div class="constraint-item constraint-item-wide">
-                    <label data-i18n="auto.slotRow">课时行</label>
-                    <div class="constraint-checkgroup" id="constraintSlotsGroup">
-                        <label class="constraint-chip active" id="constraintSlotAllLabel"><input type="checkbox" id="constraintSlotAll" checked onchange="toggleConstraintSlotAll(this)"> <span data-i18n="common.all">全部</span></label>
-                    </div>
+                <div class="constraint-item constraint-item-wide" id="constraintByDayWrap">
+                    <label data-i18n="auto.weekDaySlots">每日课时</label>
+                    <div id="constraintByDayPanel" class="constraint-by-day-panel"></div>
                 </div>
                 <span id="constraintTimeRangeWrap" class="constraint-field-wrap constraint-item">
                     <label data-i18n="auto.timeRange">时段</label>
@@ -5640,6 +6097,7 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
             <div class="form-row">
                 <span class="ui-hint-bubble" tabindex="0"><button type="button" class="ui-hint-trigger" aria-label="说明">i</button><span class="ui-hint-tooltip" data-i18n="backup.hint">全量备份含所有课表与基础数据；建议定期导出 JSON 备份。</span></span>
                 <button class="btn-orange" onclick="exportAllBackup()" data-i18n="backup.exportAll">导出全部备份</button>
+                <button class="btn-green" onclick="exportBundledDataForPack()" data-i18n="backup.exportPackSeed">导出预装数据（打包用）</button>
                 <button class="btn-orange" onclick="exportCurrentTableBackup()" data-i18n="backup.exportCurrent">导出当前课表</button>
                 <input type="file" id="allBackupFile" accept=".json">
                 <button class="btn-orange" onclick="importAllBackup()" data-i18n="backup.importAll">全局导入</button>
@@ -5651,31 +6109,32 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
 </div>
 
 <div id="tab-occupancy" class="tab-content">
-    <div class="tab-context-host"></div>
+    <div class="tab-context-host occ-toolbar-unified">
     <div class="occ-query-bar panel-card">
-        <div class="occ-type-switch">
+        <div class="occ-type-switch" id="occQueryTypeSwitch">
             <button type="button" class="occ-type-btn active" data-type="teacher" onclick="setOccQueryType('teacher')" data-i18n="occ.teacher">教师</button>
             <button type="button" class="occ-type-btn" data-type="room" onclick="setOccQueryType('room')" data-i18n="occ.room">教室</button>
         </div>
         <div class="occ-target-wrap" id="occTeacherWrap">
-            <label data-i18n="occ.teacher">教师</label>
             <div class="search-wrap occ-search-wrap">
                 <input type="text" id="occTeacherSearch" class="search-input" placeholder="搜索教师…" data-i18n-placeholder="occ.searchTeacher" oninput="filterOccTeacherOptions()">
             </div>
             <select id="occTeacherSelect" onchange="onOccQueryChange()"></select>
         </div>
         <div class="occ-target-wrap" id="occRoomWrap" style="display:none">
-            <label data-i18n="occ.room">教室</label>
             <div class="search-wrap occ-search-wrap">
                 <input type="text" id="occRoomSearch" class="search-input" placeholder="搜索教室…" data-i18n-placeholder="occ.searchRoom" oninput="filterOccRoomOptions()">
             </div>
             <select id="occRoomSelect" onchange="onOccQueryChange()"></select>
         </div>
         <div class="occ-scope">
-            <span data-i18n="occ.scope">范围</span>
-            <label><input type="radio" name="occScope" value="all" checked onchange="onOccQueryChange()"> <span data-i18n="occ.scopeAll">全部课表</span></label>
-            <label><input type="radio" name="occScope" value="current" onchange="onOccQueryChange()"> <span data-i18n="occ.scopeCurrent">当前课表</span></label>
+            <span class="occ-scope-label" data-i18n="occ.scope">范围</span>
+            <div class="occ-type-switch" id="occScopeSwitch">
+                <button type="button" class="occ-type-btn active" data-scope="all" onclick="setOccScope('all')" data-i18n="occ.scopeAll">全部课表</button>
+                <button type="button" class="occ-type-btn" data-scope="current" onclick="setOccScope('current')" data-i18n="occ.scopeCurrent">当前课表</button>
+            </div>
         </div>
+    </div>
     </div>
 
     <div id="occSummary" class="occ-summary panel-card"></div>
@@ -5824,12 +6283,12 @@ body.light-mode .schedule-action-top-merged .sab-more > summary{
 <script src="helpGuide.js"></script>
 <script src="license.js"></script>
 <script src="localStore.js"></script>
-<script src="common.js"></script>
+<script src="common.js?v=listexcel3"></script>
 <script src="lanSync.js"></script>
 <script src="auth.js"></script>
-<script src="baseManage.js"></script>
+<script src="baseManage.js?v=scheduleexport1"></script>
 <script src="scheduleRender.js"></script>
-<script src="autoSchedule.js"></script>
+<script src="autoSchedule.js?v=constraintload1"></script>
 <script src="occupancyQuery.js"></script>
 <script>
 // 主题切换逻辑
@@ -5942,7 +6401,20 @@ function placeTableManagerBar(tabName){
         host.className = 'tab-context-host';
         tab.insertBefore(host, tab.firstChild);
     }
-    if(bar.parentElement !== host) host.appendChild(bar);
+    if(bar.parentElement !== host){
+        if(tabName === 'occupancy'){
+            const occBar = host.querySelector('.occ-query-bar');
+            if(occBar) host.insertBefore(bar, occBar);
+            else host.appendChild(bar);
+        }else{
+            host.appendChild(bar);
+        }
+    }else if(tabName === 'occupancy'){
+        const occBar = host.querySelector('.occ-query-bar');
+        if(occBar && bar.nextElementSibling !== occBar && bar.parentElement === host){
+            host.insertBefore(bar, occBar);
+        }
+    }
 }
 function switchTab(tabName,btnEl){
     document.querySelectorAll('.tab-top button').forEach(btn=>btn.classList.remove('active'));
@@ -6015,7 +6487,9 @@ window.onload = async function(){
     renderSchedule();
     checkAllConflict();
     initTimeSelect();
+    if(typeof initScheduleDockPickSelects === 'function') initScheduleDockPickSelects();
     document.getElementById('viewSelect').value = 'classView';
+    if(typeof refreshDockPickSelect === 'function') refreshDockPickSelect(document.getElementById('viewSelect'));
     setTimeout(function(){
         renderExportTeacherSelect();
         renderExportTeacherSelect();
