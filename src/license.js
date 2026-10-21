@@ -3,8 +3,8 @@ const LICENSE_STORAGE_KEY = 'schedule_license_key';
 const LICENSE_MACHINE_KEY = 'schedule_license_machine';
 const LICENSE_TRIAL_START_KEY = 'schedule_trial_start';
 const LICENSE_TRIAL_PREFIX = 'schedule_trial_v2_';
-const TRIAL_DAYS = 100;
-const MS_PER_DAY = 86400000;
+const TRIAL_HOURS = 48;
+const MS_PER_HOUR = 3600000;
 // 与 tools/generate_license.py 中 LICENSE_SECRET 保持一致
 const LICENSE_SECRET = 'XidianSchedule-L1-x8k2m9p4q7w3n6r';
 
@@ -222,10 +222,12 @@ async function ensureTrialStarted(deviceKey){
     return startedAt;
 }
 
-function getTrialDaysLeftFromStart(startedAt){
-    if(!startedAt) return TRIAL_DAYS;
-    const elapsedDays = Math.floor((Date.now() - startedAt) / MS_PER_DAY);
-    return TRIAL_DAYS - elapsedDays;
+function getTrialHoursLeftFromStart(startedAt){
+    if(!startedAt) return TRIAL_HOURS;
+    const elapsedMs = Date.now() - startedAt;
+    const leftMs = TRIAL_HOURS * MS_PER_HOUR - elapsedMs;
+    if(leftMs <= 0) return 0;
+    return Math.ceil(leftMs / MS_PER_HOUR);
 }
 
 async function clearTrialRecord(deviceKey){
@@ -233,11 +235,11 @@ async function clearTrialRecord(deviceKey){
     if(deviceKey) licenseStorageRemove(LICENSE_TRIAL_PREFIX + deviceKey);
 }
 
-function updateLicenseStatusBadge(status, daysLeft){
+function updateLicenseStatusBadge(status, hoursLeft){
     const badge = document.getElementById('licenseTrialBadge');
     if(!badge) return;
     badge.dataset.licenseStatus = status || '';
-    if(typeof daysLeft === 'number') badge.dataset.daysLeft = String(daysLeft);
+    if(typeof hoursLeft === 'number') badge.dataset.hoursLeft = String(hoursLeft);
     if(status === 'activated' || status === 'hidden' || !status){
         badge.style.display = 'none';
         badge.textContent = '';
@@ -245,10 +247,10 @@ function updateLicenseStatusBadge(status, daysLeft){
         badge.onclick = null;
         return;
     }
-    if(status === 'trial' && daysLeft > 0){
+    if(status === 'trial' && hoursLeft > 0){
         badge.style.display = 'inline-flex';
-        badge.textContent = (typeof t==='function'?t('msg.trialDays',{n:daysLeft}):(daysLeft + ' 天试用'));
-        badge.title = (typeof t==='function'?t('msg.trialLeft',{n:daysLeft}):('试用期剩余 ' + daysLeft + ' 天，到期后需输入激活码。点击可提前激活'));
+        badge.textContent = (typeof t==='function'?t('msg.trialHours',{n:hoursLeft}):(hoursLeft + ' 小时试用'));
+        badge.title = (typeof t==='function'?t('msg.trialHoursLeft',{n:hoursLeft}):('试用期剩余 ' + hoursLeft + ' 小时，到期后需输入激活码。点击可提前激活'));
         badge.onclick = openLicenseModalForActivate;
         return;
     }
@@ -262,13 +264,13 @@ function refreshLicenseStatusBadge(){
     const badge = document.getElementById('licenseTrialBadge');
     if(!badge) return;
     const status = badge.dataset.licenseStatus || '';
-    const daysLeft = parseInt(badge.dataset.daysLeft || '0', 10);
-    if(status === 'trial' && daysLeft > 0){
-        updateLicenseStatusBadge('trial', daysLeft);
+    const hoursLeft = parseInt(badge.dataset.hoursLeft || badge.dataset.daysLeft || '0', 10);
+    if(status === 'trial' && hoursLeft > 0){
+        updateLicenseStatusBadge('trial', hoursLeft);
     }else if(status === 'activated'){
         updateLicenseStatusBadge('activated');
     }else if(status){
-        updateLicenseStatusBadge(status, daysLeft);
+        updateLicenseStatusBadge(status, hoursLeft);
     }
 }
 
@@ -283,9 +285,9 @@ function showLicenseModal(mode){
     if(inputWrap) inputWrap.style.display = '';
     if(hint){
         if(mode === 'trial-expired'){
-            hint.textContent = (typeof t==='function'?t('msg.trialExpired'):'100 天试用期已结束，请输入激活码继续使用。请将机器码发给管理员获取激活码。');
+            hint.textContent = (typeof t==='function'?t('msg.trialExpired'):'48 小时试用期已结束，请输入激活码继续使用。请将机器码发给管理员获取激活码。');
         }else{
-            hint.textContent = (typeof t==='function'?t('msg.trialFirst'):'首次使用自动享有 100 天试用。如需永久授权，请将机器码发给管理员获取激活码。');
+            hint.textContent = (typeof t==='function'?t('msg.trialFirst'):'首次使用自动享有 48 小时试用。如需永久授权，请将机器码发给管理员获取激活码。');
         }
     }
 }
@@ -305,8 +307,8 @@ async function openLicenseModalForActivate(){
     if(machineEl) machineEl.textContent = machineId;
     const deviceKey = await getStableDeviceKey();
     const startedAt = await loadTrialStartTime(deviceKey);
-    const daysLeft = getTrialDaysLeftFromStart(startedAt);
-    showLicenseModal(daysLeft <= 0 ? 'trial-expired' : 'activate');
+    const hoursLeft = getTrialHoursLeftFromStart(startedAt);
+    showLicenseModal(hoursLeft <= 0 ? 'trial-expired' : 'activate');
 }
 
 function copyMachineId(){
@@ -378,11 +380,11 @@ async function initLicenseCheck(){
     }
 
     const startedAt = await ensureTrialStarted(deviceKey);
-    const daysLeft = getTrialDaysLeftFromStart(startedAt);
+    const hoursLeft = getTrialHoursLeftFromStart(startedAt);
 
-    if(daysLeft > 0){
+    if(hoursLeft > 0){
         hideLicenseModal();
-        updateLicenseStatusBadge('trial', daysLeft);
+        updateLicenseStatusBadge('trial', hoursLeft);
         return true;
     }
 
