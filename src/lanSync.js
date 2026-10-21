@@ -151,7 +151,7 @@ async function lanFetch(path, options){
     return data;
 }
 
-const LAN_BUNDLE_KEYS = ['multiTableData', 'classList', 'teacherList', 'roomList', 'courseList', 'timeTemplateList'];
+const LAN_BUNDLE_KEYS = ['multiTableData', 'classList', 'teacherList', 'roomList', 'courseList', 'timeTemplateList', 'timeTemplateHiddenNames'];
 const LAN_PROTECTED_KEYS = [
     'schedule_auth_users',
     'schedule_auth_session',
@@ -204,7 +204,12 @@ function reloadUiFromStorage(){
             currentTableId = keepTableId;
         }
         if(typeof timeTemplateList !== 'undefined'){
-            timeTemplateList = JSON.parse((typeof appGetItem === 'function' ? appGetItem('timeTemplateList') : localStorage.getItem('timeTemplateList')) || '[]');
+            let tplRaw = JSON.parse((typeof appGetItem === 'function' ? appGetItem('timeTemplateList') : localStorage.getItem('timeTemplateList')) || '[]');
+            if(typeof filterHiddenTimeTemplates === 'function') tplRaw = filterHiddenTimeTemplates(tplRaw);
+            timeTemplateList = tplRaw;
+            if(typeof appSetItem === 'function'){
+                appSetItem('timeTemplateList', JSON.stringify(timeTemplateList));
+            }
         }
         if(typeof renderTimeTemplateSelect === 'function') renderTimeTemplateSelect();
         if(typeof renderTableTags === 'function') renderTableTags();
