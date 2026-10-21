@@ -104,10 +104,6 @@ const DEFAULT_TIME_TEMPLATES = [
         ]
     },
     {
-        name: '全日制课表模版',
-        timeList: JSON.parse(JSON.stringify(DEFAULT_TIME))
-    },
-    {
         name: '一天6节课（半小时起始）',
         timeList: [
             {name:"早自习7:40-8:15",isSplit:false},
@@ -474,6 +470,13 @@ function initLocalStorage(){
     
     // 保留当前选中的课表（局域网轮询会反复 init，不能每次都跳回第一张）
     if(tableList.length > 0){
+        const seedId = (typeof window !== 'undefined' && window.__seedDefaultCurrentTableId)
+            ? String(window.__seedDefaultCurrentTableId).trim()
+            : '';
+        if(seedId && tableList.some(function(t){ return t.id === seedId; })){
+            currentTableId = seedId;
+            if(typeof window !== 'undefined') delete window.__seedDefaultCurrentTableId;
+        }
         const stillExists = currentTableId && tableList.some(function(t){ return t.id === currentTableId; });
         if(!stillExists){
             currentTableId = tableList[0].id;
@@ -488,6 +491,11 @@ function initLocalStorage(){
 
 const TIME_TEMPLATE_HIDDEN_KEY = 'timeTemplateHiddenNames';
 
+/** 「模板/模版」视为同一名称，避免删了用户侧「模板」又被内置「模版」补回 */
+function normalizeTimeTemplateNameKey(name){
+    return String(name || '').trim().replace(/模板/g, '模版');
+}
+
 function getHiddenTimeTemplateNames(){
     try{
         const raw = JSON.parse(appGetItem(TIME_TEMPLATE_HIDDEN_KEY) || '[]');
@@ -497,21 +505,27 @@ function getHiddenTimeTemplateNames(){
     }
 }
 
+function isTimeTemplateHidden(name){
+    const key = normalizeTimeTemplateNameKey(name);
+    if(!key) return false;
+    return getHiddenTimeTemplateNames().some(function(n){
+        return normalizeTimeTemplateNameKey(n) === key;
+    });
+}
+
 function addHiddenTimeTemplateName(name){
     const trimmed = String(name || '').trim();
     if(!trimmed) return;
+    if(isTimeTemplateHidden(trimmed)) return;
     const hidden = getHiddenTimeTemplateNames();
-    if(hidden.indexOf(trimmed) === -1){
-        hidden.push(trimmed);
-        appSetItem(TIME_TEMPLATE_HIDDEN_KEY, JSON.stringify(hidden));
-    }
+    hidden.push(trimmed);
+    appSetItem(TIME_TEMPLATE_HIDDEN_KEY, JSON.stringify(hidden));
+    touchStorageRefresh();
 }
 
 function filterHiddenTimeTemplates(list){
-    const hidden = new Set(getHiddenTimeTemplateNames());
-    if(!hidden.size) return list || [];
     return (list || []).filter(function(item){
-        return item && !hidden.has(String(item.name || '').trim());
+        return item && !isTimeTemplateHidden(item.name);
     });
 }
 
@@ -609,15 +623,16 @@ async function initTimeTemplates(){
 
     // 打包版应用数据目录中的模版（用户安装后保存的）优先并入
     const fileList = filterHiddenTimeTemplates(await readTimeTemplatesFromAppFile());
-    if(fileList && fileList.length){
-        savedList = mergeTimeTemplateLists(savedList, fileList);
+    // 已有本地模版时以 app 存储为准；勿用旧的 time_templates.json 把已删模版「复活」
+    if(fileList && fileList.length && !savedList.length){
+        savedList = fileList;
     }
 
     if(!savedList.length){
-        timeTemplateList = JSON.parse(JSON.stringify(builtinList));
+        timeTemplateList = filterHiddenTimeTemplates(JSON.parse(JSON.stringify(builtinList)));
     }else{
         // 仅补充尚未存在的内置模版（用户已删除的内置模版不再恢复）
-        timeTemplateList = mergeTimeTemplateLists(savedList, builtinList);
+        timeTemplateList = filterHiddenTimeTemplates(mergeTimeTemplateLists(savedList, builtinList));
     }
 
     appSetItem('timeTemplateList', JSON.stringify(timeTemplateList));
@@ -1048,8 +1063,47 @@ function getCourseInfo(valKey){
     return getCourseInfoMap().get(key) || null;
 }
 
-function getClassData(){return JSON.parse(appGetItem('classList') || '[]');}
-function saveClassData(arr){appSetItem('classList', JSON.stringify(arr)); touchStorageRefresh();}
+var CLASS_GRADE_OPTIONS = [
+    '小学一年级', '小学二年级', '小学三年级', '小学四年级', '小学五年级', '小学六年级',
+    '初一', '初二', '初三',
+    '高一', '高二', '高三'
+];
+
+function normalizeClassEntry(item){
+    if(item && typeof item === 'object'){
+        return {
+            name: String(item.name != null ? item.name : '').trim(),
+            grade: String(item.grade != null ? item.grade : '').trim()
+        };
+    }
+    return { name: String(item || '').trim(), grade: '' };
+}
+
+function getClassData(){
+    var raw = JSON.parse(appGetItem('classList') || '[]');
+    if(!Array.isArray(raw)) return [];
+    return raw.map(normalizeClassEntry).filter(function(c){ return c.name; });
+}
+
+function getClassNames(){
+    return getClassData().map(function(c){ return c.name; });
+}
+
+function getClassGradeByName(className){
+    var key = String(className || '').trim();
+    if(!key) return '';
+    var list = getClassData();
+    for(var i = 0; i < list.length; i++){
+        if(list[i].name === key) return list[i].grade || '';
+    }
+    return '';
+}
+
+function saveClassData(arr){
+    var list = (arr || []).map(normalizeClassEntry).filter(function(c){ return c.name; });
+    appSetItem('classList', JSON.stringify(list));
+    touchStorageRefresh();
+}
 
 function getTeacherData(){return JSON.parse(appGetItem('teacherList') || '[]');}
 function saveTeacherData(arr){appSetItem('teacherList', JSON.stringify(arr)); touchStorageRefresh();}
@@ -1503,9 +1557,38 @@ async function exportHtmlDocumentAsPng(htmlDoc, defaultFilename){
 }
 
 // ========== 课时模版管理（全局保存，新建课表时可选用） ==========
+function getSelectedTimeTemplateIndex(){
+    const selectDom = document.getElementById('timeTemplateSelect');
+    if(!selectDom || selectDom.value === '') return null;
+    const idx = Number(selectDom.value);
+    if(!Number.isFinite(idx) || !timeTemplateList[idx]) return null;
+    return idx;
+}
+
+function updateTimeTemplateModeHint(previewTemplate){
+    const el = document.getElementById('timeTemplateModeHint');
+    if(!el) return;
+    if(previewTemplate){
+        const idx = getSelectedTimeTemplateIndex();
+        const name = idx != null && timeTemplateList[idx] ? timeTemplateList[idx].name : '';
+        el.style.display = 'block';
+        el.textContent = typeof t==='function'
+            ? t('time.previewHint', { name: name })
+            : ('正在预览模版「' + name + '」；修改下方课时仅更新该模版。点「应用到课表」才会写入上方选中的课表。');
+    }else{
+        el.style.display = 'block';
+        el.textContent = typeof t==='function'
+            ? t('time.tableHint')
+            : '当前显示并编辑的是上方选中课表的课时；选择模版下拉可预览其它模版。';
+    }
+}
+
 async function saveTimeAsTemplate(){
-    if(!currentTableId) return showAppAlert("请先选中一张课表");
-    const timeList = JSON.parse(JSON.stringify(getTimeData()));
+    const tplIdx = getSelectedTimeTemplateIndex();
+    const timeList = tplIdx != null
+        ? JSON.parse(JSON.stringify(timeTemplateList[tplIdx].timeList || []))
+        : (currentTableId ? JSON.parse(JSON.stringify(getTimeData())) : []);
+    if(!currentTableId && tplIdx == null) return showAppAlert("请先选中一张课表，或在下拉中选中要保存的模版");
     if(!timeList.length) return showAppAlert("当前课表没有课时，无法保存模版");
 
     const selectDom = document.getElementById('timeTemplateSelect');
@@ -1579,6 +1662,7 @@ async function applyTimeTemplate(silent){
     renderSchedule();
     checkAllConflict();
     saveSnapshot();
+    if(typeof updateTimeTemplateModeHint === 'function') updateTimeTemplateModeHint(true);
     if(!silent){
         await showAppAlert(typeof t==='function'?t('msg.templateLoaded'):'模版加载完成，当前课表课时已更新');
     }
@@ -1599,15 +1683,17 @@ function onTimeTemplateSelectChange(){
         }
         return;
     }
-    const list = JSON.parse(JSON.stringify(tpl.timeList || []));
-    // 先立刻刷新下方列表，避免权限/课表状态导致“看起来没反应”
-    if(typeof paintTimeList === 'function') paintTimeList(list);
-    if(!currentTableId) return;
-    if(typeof canEditData === 'function' && !canEditData()) return;
-    saveTimeData(list);
-    if(typeof renderSchedule === 'function') renderSchedule();
-    if(typeof checkAllConflict === 'function') checkAllConflict();
-    if(typeof saveSnapshot === 'function') saveSnapshot();
+    if(!currentTableId){
+        if(typeof paintTimeList === 'function'){
+            paintTimeList(JSON.parse(JSON.stringify(tpl.timeList || [])));
+        }
+        updateTimeTemplateModeHint(true);
+        return;
+    }
+    if(typeof paintTimeList === 'function'){
+        paintTimeList(JSON.parse(JSON.stringify(tpl.timeList || [])));
+    }
+    updateTimeTemplateModeHint(true);
 }
 async function renameTimeTemplate(){
     const selectDom = document.getElementById('timeTemplateSelect');
@@ -1631,8 +1717,12 @@ async function delTimeTemplate(){
     addHiddenTimeTemplateName(tpl.name);
     timeTemplateList.splice(idx, 1);
     saveTimeTemplateListStorage();
+    if(typeof flushAppDataNow === 'function'){
+        try{ await flushAppDataNow(); }catch(e){}
+    }
     renderTimeTemplateSelect();
     if(selectDom) selectDom.value = '';
+    if(typeof renderTime === 'function') renderTime();
     await showAppAlert(typeof t==='function'?t('msg.templateDeleted'):'模版已删除');
 }
 
@@ -1660,7 +1750,7 @@ async function createNewTimeTemplate(){
     const newIdx = timeTemplateList.findIndex(function(tpl){ return tpl.name === trimmed; });
     if(selectDom && newIdx >= 0) selectDom.value = String(newIdx);
     if(typeof onTimeTemplateSelectChange === 'function') onTimeTemplateSelectChange();
-    await showAppAlert(typeof t==='function'?t('msg.newTplCreated',{name:trimmed}):('已新建模版「' + trimmed + '」，可在下方编辑课时后点「保存模版」更新。'));
+    await showAppAlert(typeof t==='function'?t('msg.newTplCreated',{name:trimmed}):('已新建模版「' + trimmed + '」。可在下方编辑后点「保存」；需要用到排课表时点「应用到课表」。'));
 }
 const CLASS_TEMPLATE_PREF_KEY = 'classTemplatePrefs';
 
@@ -1744,113 +1834,330 @@ function getNewTableTimeList(selectId){
     return resolveTemplatePrefToTimeList(normalizeClassTemplatePrefValue(val));
 }
 
+// ===================== 基础数据：Excel / JSON 导入导出 =====================
+function escapeExcelCellText(val){
+    return String(val == null ? '' : val)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+var SIMPLE_LIST_EXCEL_STYLE = [
+    '<style type="text/css">',
+    'table.simple-export{border-collapse:collapse;table-layout:fixed;mso-table-lspace:0;mso-table-rspace:0;}',
+    'table.simple-export th,table.simple-export td{',
+    'border:1px solid #000;padding:6px 10px;font-size:11pt;font-family:微软雅黑,宋体,Arial,sans-serif;',
+    'vertical-align:middle;text-align:center;white-space:nowrap;mso-number-format:"\\@";mso-wrap-style:none;',
+    '}',
+    'table.simple-export th{font-weight:bold;background:#f3f4f6;}',
+    'table.simple-export td.simple-export-title-cell{font-size:14pt;font-weight:bold;text-align:center;background:#fff;border:1px solid #000;}',
+    '</style>'
+].join('');
+
+function defaultSimpleExportColWidths(colCount){
+    if(colCount === 6) return [44, 88, 96, 72, 120, 72];
+    if(colCount === 5) return [44, 96, 96, 72, 128];
+    if(colCount === 3) return [44, 200, 88];
+    if(colCount === 2) return [44, 220];
+    var w = 110;
+    var out = [];
+    for(var i = 0; i < colCount; i++) out.push(i === 0 ? 44 : w);
+    return out;
+}
+
+function simpleExportCellTag(tag, text, widthPx){
+    var w = widthPx ? ('width:' + widthPx + 'px;min-width:' + widthPx + 'px;') : '';
+    return '<' + tag + ' style="' + w + 'white-space:nowrap;mso-number-format:\\@;mso-wrap-style:none;">'
+        + escapeExcelCellText(text) + '</' + tag + '>';
+}
+
+function buildSimpleExcelHtml(title, headers, bodyRows, colWidths){
+    headers = headers || [];
+    bodyRows = bodyRows || [];
+    var colCount = Math.max(headers.length, bodyRows[0] ? bodyRows[0].length : 0, 1);
+    var widths = colWidths || defaultSimpleExportColWidths(colCount);
+    while(widths.length < colCount) widths.push(110);
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
+        + '<head><meta charset="utf-8">' + SIMPLE_LIST_EXCEL_STYLE + '</head>'
+        + '<body style="font-family:微软雅黑,宋体,Arial,sans-serif;margin:8px;">';
+    html += '<table class="simple-export" border="1" cellspacing="0" cellpadding="0">';
+    html += '<colgroup>' + widths.map(function(w){ return '<col style="width:' + w + 'px" width="' + w + '">'; }).join('') + '</colgroup>';
+    if(title){
+        html += '<tr><td class="simple-export-title-cell" colspan="' + colCount + '" align="center" style="font-size:14pt;font-weight:bold;text-align:center;padding:10px 8px;white-space:nowrap;">'
+            + escapeExcelCellText(title) + '</td></tr>';
+    }
+    if(headers.length){
+        html += '<tr>' + headers.map(function(h, i){ return simpleExportCellTag('th', h, widths[i]); }).join('') + '</tr>';
+    }
+    bodyRows.forEach(function(row){
+        html += '<tr>' + row.map(function(c, i){ return simpleExportCellTag('td', c, widths[i]); }).join('') + '</tr>';
+    });
+    html += '</table></body></html>';
+    return html;
+}
+
+async function saveModuleExcelHtml(filename, html){
+    return saveFileWithPicker(html, filename, {
+        extensions: ['xls'],
+        mimeType: 'application/vnd.ms-excel',
+        utf8Bom: true
+    });
+}
+
+function readImportFileText(file, done){
+    const reader = new FileReader();
+    reader.onload = function(e){ done(null, e.target.result); };
+    reader.onerror = function(){ done(new Error('read')); };
+    reader.readAsText(file, 'UTF-8');
+}
+
+function parseHtmlTableRows(text){
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const table = doc.querySelector('table');
+    if(!table) return null;
+    const rows = [];
+    table.querySelectorAll('tr').forEach(function(tr){
+        const cells = Array.from(tr.querySelectorAll('th,td')).map(function(td){
+            return (td.textContent || '').trim();
+        });
+        if(cells.some(function(c){ return c; })) rows.push(cells);
+    });
+    return rows.length ? rows : null;
+}
+
+function isJsonArrayText(text){
+    const s = String(text || '').trim();
+    return s.startsWith('[');
+}
+
+function headerRowLooksLikeLabels(cells, keywords){
+    if(!cells || !cells.length) return false;
+    const joined = cells.join(' ').toLowerCase();
+    return keywords.some(function(k){ return joined.indexOf(String(k).toLowerCase()) !== -1; });
+}
+
+function parseStringListImport(text, fileName, labelKeywords){
+    if(isJsonArrayText(text)){
+        const arr = JSON.parse(text);
+        if(!Array.isArray(arr)) throw new Error('json');
+        return arr.map(function(x){
+            if(typeof x === 'string') return x.trim();
+            if(x && typeof x.name === 'string') return x.name.trim();
+            return '';
+        }).filter(Boolean);
+    }
+    const rows = parseHtmlTableRows(text);
+    if(!rows) throw new Error('table');
+    let start = 0;
+    if(headerRowLooksLikeLabels(rows[0], labelKeywords.concat(['序号', 'index', '#']))) start = 1;
+    const out = [];
+    for(let i = start; i < rows.length; i++){
+        const r = rows[i];
+        if(!r || !r.length) continue;
+        let val = '';
+        if(r.length >= 2 && /^\d+$/.test(String(r[0]).trim())) val = r[1];
+        else val = r[r.length - 1] || r[0];
+        val = String(val || '').trim();
+        if(val) out.push(val);
+    }
+    return out;
+}
+
+function parseCourseListImport(text){
+    if(isJsonArrayText(text)){
+        const arr = JSON.parse(text);
+        if(!Array.isArray(arr)) throw new Error('json');
+        return arr.map(function(c){
+            return {
+                name: String(c.name || '').trim(),
+                teacher: String(c.teacher || '').trim(),
+                room: String(c.room || '').trim(),
+                cls: String(c.cls || c.class || '').trim()
+            };
+        }).filter(function(c){ return c.name && c.teacher && c.room && c.cls; });
+    }
+    const rows = parseHtmlTableRows(text);
+    if(!rows) throw new Error('table');
+    let start = 0;
+    if(headerRowLooksLikeLabels(rows[0], ['课程', 'course', '教师', 'teacher', '教室', 'room', '班级', 'class', '年级', 'grade'])) start = 1;
+    const out = [];
+    for(let i = start; i < rows.length; i++){
+        const r = rows[i];
+        if(!r || r.length < 4) continue;
+        let name, teacher, room, cls;
+        if(r.length >= 5 && /^\d+$/.test(String(r[0]).trim())){
+            name = r[1]; teacher = r[2]; room = r[3]; cls = r[4];
+            /* 第 6 列「年级」由班级档案决定，导入时忽略 */
+        }else{
+            name = r[0]; teacher = r[1]; room = r[2]; cls = r[3];
+        }
+        name = String(name || '').trim();
+        teacher = String(teacher || '').trim();
+        room = String(room || '').trim();
+        cls = String(cls || '').trim();
+        if(name && teacher && room && cls) out.push({ name: name, teacher: teacher, room: room, cls: cls });
+    }
+    return out;
+}
+
+function importFailMsg(){
+    return (typeof t === 'function' ? t('common.importFail') : '❌ 无法识别文件格式，请使用 JSON 或本系统导出的 Excel');
+}
+
 // 班级模块备份
-async function exportClassBackup(){
+async function exportClassBackupJson(){
     const data = appGetItem('classList') || '[]';
-    const saved = await saveFileWithPicker(data, `班级学员组备份_${new Date().getTime()}.json`, {
+    const saved = await saveFileWithPicker(data, '班级学员组备份_' + Date.now() + '.json', {
         extensions: ['json'], mimeType: 'application/json'
     });
-    if(saved) alert("✅ 班级数据导出完成");
+    if(saved) alert('✅ 班级 JSON 导出完成');
 }
+async function exportClassBackupExcel(){
+    const arr = getClassData();
+    const col = (typeof t === 'function' ? t('class.colName') : '班级名称');
+    const gradeCol = (typeof t === 'function' ? t('class.colGrade') : '年级');
+    const html = buildSimpleExcelHtml('班级列表', ['序号', col, gradeCol], arr.map(function(c, i){
+        return [String(i + 1), c.name, c.grade || ''];
+    }), [44, 200, 88]);
+    const saved = await saveModuleExcelHtml('班级学员组_' + Date.now() + '.xls', html);
+    if(saved) alert('✅ 班级 Excel 导出完成');
+}
+async function exportClassBackup(){ return exportClassBackupExcel(); }
+
 function importClassBackup(){
-    const file = document.getElementById("classBackupFile").files[0];
-    if(!file) return alert("请选择备份文件");
-    const reader = new FileReader();
-    reader.onload = e=>{
+    const file = document.getElementById('classBackupFile').files[0];
+    if(!file) return alert('请选择备份文件');
+    readImportFileText(file, function(err, text){
+        if(err) return alert('❌ 读取文件失败');
         try{
-            JSON.parse(e.target.result);
-            appSetItem('classList', e.target.result);
+            const arr = parseStringListImport(text, file.name, ['班级', 'class', '学员']);
+            if(!arr.length) return alert('❌ 未解析到有效班级名称');
+            saveClassData(arr);
             renderClass();
             renderCourseSelects();
             if(typeof syncClassesAndTables === 'function') syncClassesAndTables();
             renderTableTags();
             renderTime();
             renderSchedule();
-            alert("✅ 班级数据导入成功，已同步生成对应课表");
-        }catch(err){
-            alert("❌ 文件格式错误");
+            alert('✅ 班级数据导入成功，已同步生成对应课表');
+        }catch(e){
+            alert(importFailMsg());
         }
-    };
-    reader.readAsText(file);
+    });
 }
 
 // 教师模块备份
-async function exportTeacherBackup(){
+async function exportTeacherBackupJson(){
     const data = appGetItem('teacherList') || '[]';
-    const saved = await saveFileWithPicker(data, `教师数据备份_${new Date().getTime()}.json`, {
+    const saved = await saveFileWithPicker(data, '教师数据备份_' + Date.now() + '.json', {
         extensions: ['json'], mimeType: 'application/json'
     });
-    if(saved) alert("✅ 教师数据导出完成");
+    if(saved) alert('✅ 教师 JSON 导出完成');
 }
+async function exportTeacherBackupExcel(){
+    const arr = getTeacherData();
+    const col = (typeof t === 'function' ? t('teacher.colName') : '教师姓名');
+    const html = buildSimpleExcelHtml('教师列表', ['序号', col], arr.map(function(name, i){ return [String(i + 1), name]; }));
+    const saved = await saveModuleExcelHtml('教师数据_' + Date.now() + '.xls', html);
+    if(saved) alert('✅ 教师 Excel 导出完成');
+}
+async function exportTeacherBackup(){ return exportTeacherBackupExcel(); }
+
 function importTeacherBackup(){
-    const file = document.getElementById("teacherBackupFile").files[0];
-    if(!file) return alert("请选择备份文件");
-    const reader = new FileReader();
-    reader.onload = e=>{
+    const file = document.getElementById('teacherBackupFile').files[0];
+    if(!file) return alert('请选择备份文件');
+    readImportFileText(file, function(err, text){
+        if(err) return alert('❌ 读取文件失败');
         try{
-            JSON.parse(e.target.result);
-            appSetItem('teacherList', e.target.result);
+            const arr = parseStringListImport(text, file.name, ['教师', 'teacher']);
+            if(!arr.length) return alert('❌ 未解析到有效教师姓名');
+            saveTeacherData(arr);
             renderTeacher();
             renderCourseSelects();
-            alert("✅ 教师数据导入成功");
-        }catch(err){
-            alert("❌ 文件格式错误");
+            alert('✅ 教师数据导入成功');
+        }catch(e){
+            alert(importFailMsg());
         }
-    };
-    reader.readAsText(file);
+    });
 }
 
 // 教室模块备份
-async function exportRoomBackup(){
+async function exportRoomBackupJson(){
     const data = appGetItem('roomList') || '[]';
-    const saved = await saveFileWithPicker(data, `教室场地备份_${new Date().getTime()}.json`, {
+    const saved = await saveFileWithPicker(data, '教室场地备份_' + Date.now() + '.json', {
         extensions: ['json'], mimeType: 'application/json'
     });
-    if(saved) alert("✅ 教室数据导出完成");
+    if(saved) alert('✅ 教室 JSON 导出完成');
 }
+async function exportRoomBackupExcel(){
+    const arr = getRoomData();
+    const col = (typeof t === 'function' ? t('room.colName') : '教室名称');
+    const html = buildSimpleExcelHtml('教室列表', ['序号', col], arr.map(function(name, i){ return [String(i + 1), name]; }));
+    const saved = await saveModuleExcelHtml('教室场地_' + Date.now() + '.xls', html);
+    if(saved) alert('✅ 教室 Excel 导出完成');
+}
+async function exportRoomBackup(){ return exportRoomBackupExcel(); }
+
 function importRoomBackup(){
-    const file = document.getElementById("roomBackupFile").files[0];
-    if(!file) return alert("请选择备份文件");
-    const reader = new FileReader();
-    reader.onload = e=>{
+    const file = document.getElementById('roomBackupFile').files[0];
+    if(!file) return alert('请选择备份文件');
+    readImportFileText(file, function(err, text){
+        if(err) return alert('❌ 读取文件失败');
         try{
-            JSON.parse(e.target.result);
-            appSetItem('roomList', e.target.result);
+            const arr = parseStringListImport(text, file.name, ['教室', 'room', '场地']);
+            if(!arr.length) return alert('❌ 未解析到有效教室名称');
+            saveRoomData(arr);
             renderRoom();
             renderCourseSelects();
-            alert("✅ 教室数据导入成功");
-        }catch(err){
-            alert("❌ 文件格式错误");
+            alert('✅ 教室数据导入成功');
+        }catch(e){
+            alert(importFailMsg());
         }
-    };
-    reader.readAsText(file);
+    });
 }
 
 // 课程模块备份
-async function exportCourseBackup(){
+async function exportCourseBackupJson(){
     const data = appGetItem('courseList') || '[]';
-    const saved = await saveFileWithPicker(data, `课程数据备份_${new Date().getTime()}.json`, {
+    const saved = await saveFileWithPicker(data, '课程数据备份_' + Date.now() + '.json', {
         extensions: ['json'], mimeType: 'application/json'
     });
-    if(saved) alert("✅ 课程数据导出完成");
+    if(saved) alert('✅ 课程 JSON 导出完成');
 }
+async function exportCourseBackupExcel(){
+    const arr = getCourseData();
+    const h1 = (typeof t === 'function' ? t('course.name') : '课程名称').replace(/：$/, '');
+    const h2 = (typeof t === 'function' ? t('nav.teacher') : '教师');
+    const h3 = (typeof t === 'function' ? t('nav.room') : '教室');
+    const h4 = (typeof t === 'function' ? t('nav.class') : '班级');
+    const hGrade = (typeof t === 'function' ? t('class.colGrade') : '年级');
+    const bodyRows = arr.map(function(c, i){
+        return [String(i + 1), c.name, c.teacher, c.room, c.cls, getClassGradeByName(c.cls)];
+    });
+    const html = buildSimpleExcelHtml('课程列表', ['序号', h1, h2, h3, h4, hGrade], bodyRows, [44, 88, 96, 72, 120, 72]);
+    const saved = await saveModuleExcelHtml('课程数据_' + Date.now() + '.xls', html);
+    if(saved) alert('✅ 课程 Excel 导出完成');
+}
+async function exportCourseBackup(){ return exportCourseBackupExcel(); }
+
 function importCourseBackup(){
-    const file = document.getElementById("courseBackupFile").files[0];
-    if(!file) return alert("请选择备份文件");
-    const reader = new FileReader();
-    reader.onload = e=>{
+    const file = document.getElementById('courseBackupFile').files[0];
+    if(!file) return alert('请选择备份文件');
+    readImportFileText(file, function(err, text){
+        if(err) return alert('❌ 读取文件失败');
         try{
-            JSON.parse(e.target.result);
-            appSetItem('courseList', e.target.result);
+            const arr = parseCourseListImport(text);
+            if(!arr.length) return alert('❌ 未解析到有效课程行（需含课程、教师、教室、班级）');
+            saveCourseData(arr);
             if(typeof invalidateCourseInfoCache === 'function') invalidateCourseInfoCache();
             renderCourse();
             renderCourseSelects();
-            alert("✅ 课程数据导入成功");
-        }catch(err){
-            alert("❌ 文件格式错误");
+            alert('✅ 课程数据导入成功');
+        }catch(e){
+            alert(importFailMsg());
         }
-    };
-    reader.readAsText(file);
+    });
 }
 
 // ===================== 工具函数 =====================
@@ -2113,17 +2420,14 @@ function checkAllConflict() {
     const currentCount = currentConflictList.length;
 
     const conflictTipDom = document.getElementById('conflictTip');
-    const conflictDetailBar = document.getElementById('btnConflictDetailBar');
     if (totalGlobal === 0) {
         conflictTipDom.className = 'conflict-tip conflict-tip-ok';
         conflictTipDom.innerText = (typeof t==='function'?t('conflict.none'):'✅ 全局检测完成：教师、教室、学员时段无冲突');
-        if(conflictDetailBar) conflictDetailBar.style.display = 'none';
     } else {
         conflictTipDom.className = 'conflict-tip conflict-tip-bad';
         conflictTipDom.innerText = (typeof t==='function'
             ? t('conflict.found',{total:totalGlobal,current:currentCount})
             : `❌ 全局共${totalGlobal}处冲突，当前课表 ${currentCount} 处，冲突格已标红`);
-        if(conflictDetailBar) conflictDetailBar.style.display = '';
     }
 }
 
