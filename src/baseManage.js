@@ -32,16 +32,56 @@ function onScheduleTimeSelectChange(){
     if(!s && !e) scheduleTimeManualOverride = false;
 }
 
+function isValidScheduleClockValue(time){
+    const t = typeof normalizeClockTime === 'function' ? normalizeClockTime(time) : String(time || '').trim();
+    return !!t && /^\d{2}:\d{2}$/.test(t);
+}
+
+function looksLikePeriodRangeLabel(str){
+    return /\d{1,2}:\d{2}\s*[-–—~～]\s*\d{1,2}:\d{2}/.test(String(str || ''));
+}
+
+function isAllowedTimeSelectOption(option, allowEmpty){
+    if(!option) return false;
+    if(allowEmpty && option.value === '') return true;
+    if(looksLikePeriodRangeLabel(option.value) || looksLikePeriodRangeLabel(option.textContent)){
+        return false;
+    }
+    return isValidScheduleClockValue(option.value);
+}
+
+/** 去掉误写入的「08:00-10:00」等课节区间，只保留 HH:mm */
+function pruneTimeSelectOptions(selectEl){
+    if(!selectEl) return;
+    for(let i = selectEl.options.length - 1; i >= 0; i--){
+        const opt = selectEl.options[i];
+        if(i === 0 && opt.value === '') continue;
+        if(!isAllowedTimeSelectOption(opt, false)){
+            opt.remove();
+        }else if(opt.value && opt.textContent !== opt.value){
+            opt.textContent = opt.value;
+        }
+    }
+    if(selectEl.value && !isValidScheduleClockValue(selectEl.value)){
+        selectEl.value = '';
+    }
+}
+
 function ensureTimeSelectOption(selectEl, time){
     if(!selectEl || !time) return;
-    const exists = Array.from(selectEl.options).some(function(o){ return o.value === time; });
+    const norm = typeof normalizeClockTime === 'function' ? normalizeClockTime(time) : '';
+    if(!norm) return;
+    const exists = Array.from(selectEl.options).some(function(o){ return o.value === norm; });
     if(exists) return;
     const opt = document.createElement('option');
-    opt.value = time;
-    opt.textContent = time;
+    opt.value = norm;
+    opt.textContent = norm;
+    const normMin = typeof timeToMin === 'function' ? timeToMin(norm) : norm;
     let inserted = false;
     for(let i = 1; i < selectEl.options.length; i++){
-        if(selectEl.options[i].value > time){
+        const ov = selectEl.options[i].value;
+        const cmp = typeof timeToMin === 'function' ? timeToMin(ov) : ov;
+        if(cmp > normMin){
             selectEl.insertBefore(opt, selectEl.options[i]);
             inserted = true;
             break;
@@ -63,6 +103,10 @@ function applyPeriodTimeToSelects(periodName, force){
     ensureTimeSelectOption(endSel, parsed.end);
     startSel.value = parsed.start;
     endSel.value = parsed.end;
+    if(typeof refreshDockPickSelect === 'function'){
+        refreshDockPickSelect(startSel);
+        refreshDockPickSelect(endSel);
+    }
     return { start: parsed.start, end: parsed.end, fromPeriod: true };
 }
 
@@ -73,8 +117,8 @@ function initTimeSelect() {
     const startSel = document.getElementById('startTimeSelect');
     const endSel = document.getElementById('endTimeSelect');
     if (!startSel || !endSel) return;
-    const prevStart = startSel.value;
-    const prevEnd = endSel.value;
+    const prevStart = isValidScheduleClockValue(startSel.value) ? startSel.value : '';
+    const prevEnd = isValidScheduleClockValue(endSel.value) ? endSel.value : '';
 
     startSel.innerHTML = '<option value="">'+(typeof t==='function'?t('schedule.selectStart'):'请选择开始时间')+'</option>';
     endSel.innerHTML = '<option value="">'+(typeof t==='function'?t('schedule.selectEnd'):'请选择结束时间')+'</option>';
@@ -83,6 +127,8 @@ function initTimeSelect() {
         startSel.innerHTML += `<option value="${time}">${time}</option>`;
         endSel.innerHTML += `<option value="${time}">${time}</option>`;
     });
+    pruneTimeSelectOptions(startSel);
+    pruneTimeSelectOptions(endSel);
     if(prevStart){
         ensureTimeSelectOption(startSel, prevStart);
         startSel.value = prevStart;
@@ -90,6 +136,194 @@ function initTimeSelect() {
     if(prevEnd){
         ensureTimeSelectOption(endSel, prevEnd);
         endSel.value = prevEnd;
+    }
+    if(typeof refreshDockPickSelect === 'function'){
+        refreshDockPickSelect(startSel);
+        refreshDockPickSelect(endSel);
+    }
+}
+
+/** 排课页：视图 / 起止时间 — 自定义下拉（展开列表文字可居中） */
+function dockPickOptionLabel(option){
+    if(!option) return '';
+    const key = option.getAttribute && option.getAttribute('data-i18n');
+    if(key && typeof t === 'function'){
+        const nAttr = option.getAttribute('data-i18n-n');
+        if(nAttr != null) return t(key, { n: nAttr });
+        return t(key);
+    }
+    return option.textContent || '';
+}
+
+function restoreDockPickMenu(menu){
+    if(!menu) return;
+    const wrap = menu.__dockPickWrap;
+    if(wrap && menu.parentNode === document.body){
+        wrap.appendChild(menu);
+    }
+    menu.style.position = '';
+    menu.style.left = '';
+    menu.style.top = '';
+    menu.style.width = '';
+    menu.style.right = '';
+    menu.style.zIndex = '';
+    menu.style.maxHeight = '';
+}
+
+function positionDockPickMenu(trigger, menu){
+    const rect = trigger.getBoundingClientRect();
+    const margin = 8;
+    let width = rect.width;
+    let left = rect.left;
+    const vw = window.innerWidth;
+    if(left + width > vw - margin){
+        left = Math.max(margin, vw - margin - width);
+    }
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    menu.style.position = 'fixed';
+    menu.style.left = left + 'px';
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.width = width + 'px';
+    menu.style.right = 'auto';
+    menu.style.zIndex = '2147483000';
+    menu.style.maxHeight = Math.min(240, Math.max(120, spaceBelow)) + 'px';
+}
+
+function openDockPickMenu(ui){
+    ui.menu.__dockPickWrap = ui.wrap;
+    if(ui.menu.parentNode !== document.body){
+        document.body.appendChild(ui.menu);
+    }
+    positionDockPickMenu(ui.trigger, ui.menu);
+    ui.menu.hidden = false;
+    ui.trigger.setAttribute('aria-expanded', 'true');
+}
+
+function closeAllDockPickMenus(){
+    document.querySelectorAll('.dock-pick-menu').forEach(function(menu){
+        menu.hidden = true;
+        restoreDockPickMenu(menu);
+    });
+    document.querySelectorAll('.dock-pick-trigger').forEach(function(btn){
+        btn.setAttribute('aria-expanded', 'false');
+    });
+}
+
+function onDockPickOutsideScroll(ev){
+    const t = ev.target;
+    if(t && t.closest && t.closest('.dock-pick-menu:not([hidden])')) return;
+    closeAllDockPickMenus();
+}
+
+function bindDockPickMenuScroll(menu){
+    if(!menu || menu.dataset.dockPickScrollBound === '1') return;
+    menu.dataset.dockPickScrollBound = '1';
+    menu.addEventListener('wheel', function(ev){ ev.stopPropagation(); }, { passive: true });
+    menu.addEventListener('touchmove', function(ev){ ev.stopPropagation(); }, { passive: true });
+    menu.addEventListener('click', function(ev){ ev.stopPropagation(); });
+}
+
+function refreshAllScheduleDockPicks(){
+    ['viewSelect', 'startTimeSelect', 'endTimeSelect'].forEach(function(id){
+        const el = document.getElementById(id);
+        if(el && typeof refreshDockPickSelect === 'function') refreshDockPickSelect(el);
+    });
+}
+
+function ensureDockPickControls(selectEl){
+    const wrap = selectEl.closest('.dock-pick-wrap');
+    if(!wrap) return null;
+    let trigger = wrap.querySelector('.dock-pick-trigger');
+    let menu = wrap.querySelector('.dock-pick-menu');
+    if(!trigger){
+        trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'dock-pick-trigger';
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+        wrap.appendChild(trigger);
+    }
+    if(!menu){
+        menu = document.createElement('ul');
+        menu.className = 'dock-pick-menu';
+        menu.setAttribute('role', 'listbox');
+        menu.hidden = true;
+        wrap.appendChild(menu);
+    }
+    bindDockPickMenuScroll(menu);
+    return { wrap: wrap, trigger: trigger, menu: menu };
+}
+
+function refreshDockPickSelect(selectEl){
+    if(!selectEl || !selectEl.classList.contains('dock-pick-native')) return;
+    if(selectEl.id === 'startTimeSelect' || selectEl.id === 'endTimeSelect'){
+        pruneTimeSelectOptions(selectEl);
+    }
+    const ui = ensureDockPickControls(selectEl);
+    if(!ui) return;
+    const opt = selectEl.options[selectEl.selectedIndex];
+    ui.trigger.textContent = dockPickOptionLabel(opt);
+    ui.menu.innerHTML = '';
+    const isTimeSelect = selectEl.id === 'startTimeSelect' || selectEl.id === 'endTimeSelect';
+    Array.from(selectEl.options).forEach(function(option){
+        const isPlaceholder = option.value === '';
+        if(isTimeSelect && !isAllowedTimeSelectOption(option, true)) return;
+        const li = document.createElement('li');
+        li.setAttribute('role', 'presentation');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dock-pick-item' + (option.selected ? ' is-active' : '');
+        if(isPlaceholder) btn.classList.add('dock-pick-item-placeholder');
+        btn.setAttribute('role', 'option');
+        btn.textContent = dockPickOptionLabel(option);
+        btn.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+        btn.addEventListener('click', function(ev){
+            ev.preventDefault();
+            selectEl.value = option.value;
+            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+            closeAllDockPickMenus();
+            refreshDockPickSelect(selectEl);
+        });
+        li.appendChild(btn);
+        ui.menu.appendChild(li);
+    });
+}
+
+function bindDockPickSelect(selectId){
+    const selectEl = document.getElementById(selectId);
+    if(!selectEl) return;
+    const ui = ensureDockPickControls(selectEl);
+    if(!ui) return;
+    if(selectEl.dataset.dockPickBound === '1'){
+        refreshDockPickSelect(selectEl);
+        return;
+    }
+    selectEl.dataset.dockPickBound = '1';
+    ui.trigger.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        const willOpen = ui.menu.hidden;
+        closeAllDockPickMenus();
+        if(willOpen){
+            if(selectEl.id === 'startTimeSelect' || selectEl.id === 'endTimeSelect'){
+                pruneTimeSelectOptions(selectEl);
+            }
+            refreshDockPickSelect(selectEl);
+            openDockPickMenu(ui);
+        }
+    });
+    refreshDockPickSelect(selectEl);
+}
+
+function initScheduleDockPickSelects(){
+    ['viewSelect', 'startTimeSelect', 'endTimeSelect'].forEach(bindDockPickSelect);
+    if(!document.documentElement.dataset.dockPickDocBound){
+        document.documentElement.dataset.dockPickDocBound = '1';
+        document.addEventListener('click', function(){
+            closeAllDockPickMenus();
+        });
+        window.addEventListener('resize', closeAllDockPickMenus);
+        window.addEventListener('scroll', onDockPickOutsideScroll, true);
     }
 }
 
@@ -168,53 +402,105 @@ function courseItemMatchesSearch(item, keyword){
         || matchSearch(item.cls, keyword);
 }
 
-// ========== 课时管理（仅操作当前选中课表的独立课时） ==========
+// ========== 课时管理（课表课时 / 模版预览两套数据源） ==========
+function isEditingTimeTemplatePreview(){
+    return typeof getSelectedTimeTemplateIndex === 'function' && getSelectedTimeTemplateIndex() != null;
+}
+
+function commitActiveTimeList(arr, options){
+    options = options || {};
+    const tplIdx = typeof getSelectedTimeTemplateIndex === 'function' ? getSelectedTimeTemplateIndex() : null;
+    if(tplIdx != null){
+        timeTemplateList[tplIdx].timeList = arr;
+        if(typeof saveTimeTemplateListStorage === 'function') saveTimeTemplateListStorage();
+        paintTimeList(arr);
+        return 'template';
+    }
+    if(!currentTableId) return null;
+    saveTimeData(arr);
+    paintTimeList(arr);
+    if(options.skipSchedule) return 'table';
+    renderSchedule();
+    checkAllConflict();
+    return 'table';
+}
+
 function addTime(){
     let val = document.getElementById("timeName").value.trim();
     const isSplit = document.getElementById("isSplitRow").value === "1";
     if(!val) return alert("请填写课时名称");
-    if(!currentTableId) return alert("请先选中一张课表，课时属于单张课表，不再全局共用");
-    let arr = getTimeData();
+    const tplIdx = typeof getSelectedTimeTemplateIndex === 'function' ? getSelectedTimeTemplateIndex() : null;
+    if(tplIdx == null && !currentTableId) return alert("请先选中一张课表，课时属于单张课表，不再全局共用");
+    let arr;
+    if(tplIdx != null){
+        arr = JSON.parse(JSON.stringify(timeTemplateList[tplIdx].timeList || []));
+    }else{
+        arr = JSON.parse(JSON.stringify(getTimeData()));
+    }
     arr.push({name:val,isSplit:isSplit});
-    saveTimeData(arr);
+    commitActiveTimeList(arr);
     document.getElementById("timeName").value = "";
     document.getElementById("isSplitRow").value = "0";
-    renderTime();renderSchedule();checkAllConflict();
 }
 function delTime(idx){
-    if(!currentTableId) return alert("请先选中一张课表");
-    let schedule = getCurrentTableData();
-    if(typeof reindexScheduleAfterTimeRowRemoved === 'function'){
-        schedule = reindexScheduleAfterTimeRowRemoved(schedule, idx);
-        saveCurrentTableData(schedule);
+    const tplIdx = typeof getSelectedTimeTemplateIndex === 'function' ? getSelectedTimeTemplateIndex() : null;
+    if(tplIdx == null && !currentTableId) return alert("请先选中一张课表");
+    if(tplIdx == null){
+        let schedule = getCurrentTableData();
+        if(typeof reindexScheduleAfterTimeRowRemoved === 'function'){
+            schedule = reindexScheduleAfterTimeRowRemoved(schedule, idx);
+            saveCurrentTableData(schedule);
+        }
     }
-    let arr=getTimeData();
+    let arr;
+    if(tplIdx != null){
+        arr = JSON.parse(JSON.stringify(timeTemplateList[tplIdx].timeList || []));
+    }else{
+        arr = JSON.parse(JSON.stringify(getTimeData()));
+    }
     arr.splice(idx,1);
-    saveTimeData(arr);
-    renderTime();
-    renderSchedule();
-    checkAllConflict();
+    commitActiveTimeList(arr);
 }
 function editTime(idx,oldVal,oldIsSplit,td){
-    if(!currentTableId) return alert("请先选中一张课表");
+    const tplIdx = typeof getSelectedTimeTemplateIndex === 'function' ? getSelectedTimeTemplateIndex() : null;
+    if(tplIdx == null && !currentTableId) return alert("请先选中一张课表");
     let input=document.createElement("input");input.value=oldVal;input.style.width="100%";
     td.innerHTML="";td.appendChild(input);input.focus();
     function saveEdit(){
         let nv=input.value.trim()||oldVal;
-        let arr=getTimeData();
+        let arr;
+        if(tplIdx != null){
+            arr = JSON.parse(JSON.stringify(timeTemplateList[tplIdx].timeList || []));
+        }else{
+            arr = JSON.parse(JSON.stringify(getTimeData()));
+        }
+        if(!arr[idx]) return;
         arr[idx].name = nv;
-        saveTimeData(arr);
-        td.innerText=nv;renderSchedule();checkAllConflict();
+        const mode = commitActiveTimeList(arr, { skipSchedule: tplIdx != null });
+        if(mode === 'table'){
+            td.innerText=nv;
+        }else{
+            renderTime();
+        }
     }
     input.onblur=saveEdit;
     input.onkeydown=e=>{if(e.key==="Enter")saveEdit();};
 }
 function renderTime(){
+    const hintEl = document.getElementById('timeTemplateModeHint');
     if(!currentTableId){
+        if(hintEl) hintEl.style.display = 'none';
         document.getElementById("timeList").innerHTML = `<tr><td colspan="3" style="color:red;text-align:center;">请先选中一张课表，才能查看/编辑本班级专属课时</td></tr>`;
         return;
     }
+    const tplIdx = typeof getSelectedTimeTemplateIndex === 'function' ? getSelectedTimeTemplateIndex() : null;
+    if(tplIdx != null){
+        paintTimeList(JSON.parse(JSON.stringify(timeTemplateList[tplIdx].timeList || [])));
+        if(typeof updateTimeTemplateModeHint === 'function') updateTimeTemplateModeHint(true);
+        return;
+    }
     paintTimeList(getTimeData());
+    if(typeof updateTimeTemplateModeHint === 'function') updateTimeTemplateModeHint(false);
 }
 
 /** 将任意课时数组渲染到下方列表（模版切换时直接用） */
@@ -288,7 +574,7 @@ function removeCoursesForClass(className){
 function pruneOrphanCourses(){
     const classSet = {};
     getClassData().forEach(function(cls){
-        const name = (cls || '').trim();
+        const name = (typeof normalizeClassEntry === 'function' ? normalizeClassEntry(cls).name : String(cls || '').trim());
         if(name) classSet[name] = true;
     });
     const courses = getCourseData();
@@ -316,7 +602,7 @@ function syncClassesAndTables(){
     });
 
     classList.forEach(function(cls){
-        const name = (cls || '').trim();
+        const name = (typeof normalizeClassEntry === 'function' ? normalizeClassEntry(cls).name : String(cls || '').trim());
         if(!name) return;
         const table = findTableByClassName(name);
         if(!table){
@@ -338,13 +624,33 @@ function syncClassesAndTables(){
     }
 }
 
+function renderClassGradeSelect(){
+    const sel = document.getElementById('newClassGrade');
+    if(!sel || sel.dataset.gradeOptsBound === '1') return;
+    sel.dataset.gradeOptsBound = '1';
+    const placeholder = (typeof t === 'function' ? t('class.gradePlaceholder') : '请选择年级');
+    const opts = (typeof CLASS_GRADE_OPTIONS !== 'undefined' && CLASS_GRADE_OPTIONS.length)
+        ? CLASS_GRADE_OPTIONS
+        : ['小学一年级','小学二年级','小学三年级','小学四年级','小学五年级','小学六年级','初一','初二','初三','高一','高二','高三'];
+    opts.forEach(function(g){
+        const opt = document.createElement('option');
+        opt.value = g;
+        opt.textContent = g;
+        sel.appendChild(opt);
+    });
+    if(sel.options.length && sel.options[0].value === '') sel.options[0].textContent = placeholder;
+}
+
 function addClass(){
     const name = document.getElementById("className").value.trim();
-    if(!name) return alert("请填写班级名称");
+    if(!name) return alert(typeof t==='function'?t('class.nameRequired'):'请填写班级名称');
+    const gradeEl = document.getElementById('newClassGrade');
+    const grade = gradeEl ? gradeEl.value.trim() : '';
+    if(!grade) return alert(typeof t==='function'?t('class.gradeRequired'):'请选择年级');
     const arr = getClassData();
-    if(arr.includes(name)) return alert("该班级名称已存在");
+    if(arr.some(function(c){ return c.name === name; })) return alert(typeof t==='function'?t('class.duplicate'):'该班级名称已存在');
 
-    arr.push(name);
+    arr.push({ name: name, grade: grade });
     saveClassData(arr);
 
     const tplSelect = document.getElementById('newClassTimeTemplate');
@@ -370,6 +676,7 @@ function addClass(){
     saveTableList();
     saveSnapshot();
     document.getElementById("className").value = "";
+    if(gradeEl) gradeEl.value = '';
     renderClass();
     renderTableTags();
     renderTime();
@@ -385,7 +692,7 @@ function addClass(){
 
 async function delClass(idx){
     const arr = getClassData();
-    const className = arr[idx];
+    const className = arr[idx] ? arr[idx].name : '';
     if(tableList.length <= 1 && findTableByClassName(className)){
         return alert("至少保留一个班级/课表");
     }
@@ -420,15 +727,25 @@ async function delClass(idx){
 }
 function editClass(idx){
     const arr = getClassData();
-    const oldName = arr[idx];
-    document.getElementById("modalTitle").innerText = "修改班级名称";
+    const entry = arr[idx];
+    if(!entry) return;
+    const oldName = entry.name;
+    const oldGrade = entry.grade || '';
+    const gradeOpts = (typeof CLASS_GRADE_OPTIONS !== 'undefined' ? CLASS_GRADE_OPTIONS : []).map(function(g){
+        return `<option value="${escCourseHtml(g)}" ${g === oldGrade ? 'selected' : ''}>${escCourseHtml(g)}</option>`;
+    }).join('');
+    document.getElementById("modalTitle").innerText = typeof t==='function'?t('class.editTitle'):'修改班级';
     document.getElementById("modalBody").innerHTML = `
         <div style="margin:10px 0;">
-            <label>原名称：</label><span>${oldName}</span>
+            <label>${typeof t==='function'?t('class.name').replace(/：$/,''):'班级名称'}：</label>
+            <input type="text" id="editClassName" value="${escCourseHtml(oldName)}" style="width:260px;padding:6px;">
         </div>
         <div style="margin:10px 0;">
-            <label>新名称：</label>
-            <input type="text" id="editClassName" value="${oldName}" style="width:260px;padding:6px;">
+            <label>${typeof t==='function'?t('class.grade').replace(/：$/,''):'年级'}：</label>
+            <select id="editClassGrade" style="min-width:160px;padding:6px;">
+                <option value="">${typeof t==='function'?t('class.gradePlaceholder'):'请选择年级'}</option>
+                ${gradeOpts}
+            </select>
         </div>
     `;
     document.getElementById("modalFooter").innerHTML = `
@@ -439,17 +756,23 @@ function editClass(idx){
 }
 function saveEditClassName(idx){
     const newName = document.getElementById("editClassName").value.trim();
+    const newGradeEl = document.getElementById('editClassGrade');
+    const newGrade = newGradeEl ? newGradeEl.value.trim() : '';
     if(!newName){
-        alert("名称不能为空");
+        alert(typeof t==='function'?t('class.nameRequired'):'名称不能为空');
+        return;
+    }
+    if(!newGrade){
+        alert(typeof t==='function'?t('class.gradeRequired'):'请选择年级');
         return;
     }
     const arr = getClassData();
-    const oldName = arr[idx];
-    if(arr.includes(newName) && newName !== oldName){
-        return alert("该班级名称已存在");
+    const oldName = arr[idx] ? arr[idx].name : '';
+    if(arr.some(function(c){ return c.name === newName && c.name !== oldName; })){
+        return alert(typeof t==='function'?t('class.duplicate'):'该班级名称已存在');
     }
 
-    arr[idx] = newName;
+    arr[idx] = { name: newName, grade: newGrade };
     saveClassData(arr);
 
     const table = findTableByClassName(oldName);
@@ -477,20 +800,23 @@ function saveEditClassName(idx){
     closeAutoModal();
 }
 function renderClass(){
+    renderClassGradeSelect();
     const keyword = getListSearchKeyword('classSearchInput');
     let arr = getClassData();
     let html = "";
     let visibleCount = 0;
     arr.forEach((item, idx)=>{
-        if(!matchSearch(item, keyword)) return;
+        const name = item.name || '';
+        const grade = item.grade || '';
+        if(!matchSearch(name, keyword) && !matchSearch(grade, keyword)) return;
         visibleCount++;
-        html += `<tr><td>${visibleCount}</td><td>${escCourseHtml(item)}</td><td>
+        html += `<tr><td>${visibleCount}</td><td>${escCourseHtml(name)}</td><td>${escCourseHtml(grade || '—')}</td><td>
             <button class="edit" onclick="editClass(${idx})">${typeof t==='function'?t('common.edit'):'修改'}</button>
             <button class="del" onclick="delClass(${idx})">${typeof t==='function'?t('common.delete'):'删除'}</button>
         </td></tr>`;
     });
     if(!html){
-        html = `<tr class="search-empty"><td colspan="3">${keyword ? '无匹配的班级' : '暂无班级数据'}</td></tr>`;
+        html = `<tr class="search-empty"><td colspan="4">${keyword ? '无匹配的班级' : '暂无班级数据'}</td></tr>`;
     }
     document.getElementById("classList").innerHTML = html;
     updateListSearchHint('classSearchHint', visibleCount, arr.length, keyword);
@@ -671,7 +997,7 @@ function groupCoursesByDimension(arr, dimension){
 }
 
 function buildCourseRowHtml(idx, item, allNameArr, teacherList, roomList, classList){
-    let nameSelect = `<select onchange="updateCourseField(${idx},'name',this.value)" style="width:120px;padding:4px;">`;
+    let nameSelect = `<select class="course-cell-select" onchange="updateCourseField(${idx},'name',this.value)">`;
     allNameArr.forEach(name=>{
         const selected = name === item.name ? "selected" : "";
         const label = (typeof displayCourseName==='function'?displayCourseName(name):name);
@@ -680,11 +1006,12 @@ function buildCourseRowHtml(idx, item, allNameArr, teacherList, roomList, classL
     nameSelect += `</select>`;
 
     let tOpt = teacherList.map(t=>`<option value="${escCourseHtml(t)}" ${t===item.teacher?'selected':''}>${escCourseHtml(t)}</option>`).join('');
-    let tSelect = `<select onchange="updateCourseField(${idx},'teacher',this.value)" style="width:120px;padding:4px;">${tOpt}</select>`;
+    let tSelect = `<select class="course-cell-select" onchange="updateCourseField(${idx},'teacher',this.value)">${tOpt}</select>`;
     let rOpt = roomList.map(r=>`<option value="${escCourseHtml(r)}" ${r===item.room?'selected':''}>${escCourseHtml(r)}</option>`).join('');
-    let rSelect = `<select onchange="updateCourseField(${idx},'room',this.value)" style="width:120px;padding:4px;">${rOpt}</select>`;
-    let cOpt = classList.map(c=>`<option value="${escCourseHtml(c)}" ${c===item.cls?'selected':''}>${escCourseHtml(c)}</option>`).join('');
-    let cSelect = `<select onchange="updateCourseField(${idx},'cls',this.value)" style="width:140px;padding:4px;">${cOpt}</select>`;
+    let rSelect = `<select class="course-cell-select" onchange="updateCourseField(${idx},'room',this.value)">${rOpt}</select>`;
+    const classNames = classList.map(function(c){ return typeof c === 'string' ? c : (c && c.name) || ''; });
+    let cOpt = classNames.map(c=>`<option value="${escCourseHtml(c)}" ${c===item.cls?'selected':''}>${escCourseHtml(c)}</option>`).join('');
+    let cSelect = `<select class="course-cell-select" onchange="updateCourseField(${idx},'cls',this.value)">${cOpt}</select>`;
 
     return `<tr>
         <td>${idx + 1}</td>
@@ -703,15 +1030,29 @@ function buildCourseGroupTableHtml(indices){
     const roomList = getRoomData();
     const classList = getClassData();
     let rows = indices.map(idx=>buildCourseRowHtml(idx, arr[idx], allNameArr, teacherList, roomList, classList)).join('');
+    const thIdx = typeof t==='function'?t('common.index'):'序号';
+    const thName = typeof t==='function'?t('course.name').replace(/：$/,''):'课程名称';
+    const thTeacher = typeof t==='function'?t('nav.teacher'):'教师';
+    const thRoom = typeof t==='function'?t('nav.room'):'教室';
+    const thClass = typeof t==='function'?t('nav.class'):'班级';
+    const thAction = typeof t==='function'?t('common.action'):'操作';
     return `<table>
+        <colgroup>
+            <col style="width:64px">
+            <col style="width:18%">
+            <col style="width:16%">
+            <col style="width:14%">
+            <col style="width:18%">
+            <col style="width:96px">
+        </colgroup>
         <thead>
         <tr>
-            <th>序号</th>
-            <th>课程名称</th>
-            <th>教师</th>
-            <th>教室</th>
-            <th>班级</th>
-            <th>操作</th>
+            <th>${thIdx}</th>
+            <th>${thName}</th>
+            <th>${thTeacher}</th>
+            <th>${thRoom}</th>
+            <th>${thClass}</th>
+            <th>${thAction}</th>
         </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -816,7 +1157,7 @@ function renderCourse(){
 
 // ========== 下拉选项渲染【已修改：课程只展示当前课表绑定班级】 ==========
 function renderCourseSelects(){
-    let tData=getTeacherData();let rData=getRoomData();let clsData=getClassData();let cData=getCourseData();
+    let tData=getTeacherData();let rData=getRoomData();let clsData=getClassNames();let cData=getCourseData();
     let s1='<option value="">'+(typeof t==='function'?t('course.selectTeacher'):'选择教师')+'</option>';tData.forEach(x=>s1+=`<option value="${x}">${x}</option>`);document.getElementById("courseTeacher").innerHTML=s1;
     let s2='<option value="">'+(typeof t==='function'?t('course.selectRoom'):'选择场地')+'</option>';rData.forEach(x=>s2+=`<option value="${x}">${x}</option>`);document.getElementById("courseRoom").innerHTML=s2;
     let s3='<option value="">'+(typeof t==='function'?t('course.selectClass'):'选择学员组')+'</option>';clsData.forEach(x=>s3+=`<option value="${x}">${x}</option>`);document.getElementById("courseClass").innerHTML=s3;
@@ -919,6 +1260,8 @@ function renderTableTags(){
 
 function switchTable(tid){
     currentTableId = tid;
+    const tplSel = document.getElementById('timeTemplateSelect');
+    if(tplSel) tplSel.value = '';
     if(typeof sanitizeCurrentTableScheduleData === 'function') sanitizeCurrentTableScheduleData();
     renderTableTags();
     renderTime();
@@ -945,7 +1288,7 @@ async function delCurrentTable(){
     if(!(await showAppConfirm('确定删除课表「' + className + '」？班级列表中对应班级及该班课程也将删除。'))) return;
 
     const classes = getClassData();
-    const cIdx = classes.indexOf(className);
+    const cIdx = classes.findIndex(function(c){ return c.name === className; });
     if(cIdx !== -1){
         classes.splice(cIdx, 1);
         saveClassData(classes);
@@ -1133,8 +1476,8 @@ function testScheduleData(){
 }
 
 // 1. 导出全部备份（含所有课表排课内容、基础数据、课时模版）
-async function exportAllBackup() {
-    const backupData = {
+function buildFullBackupPayload(){
+    return {
         backupType: "fullBackup",
         backupTime: new Date().toLocaleString(),
         multiTableData: JSON.parse(JSON.stringify(tableList)),
@@ -1143,10 +1486,43 @@ async function exportAllBackup() {
         roomList: JSON.parse(appGetItem('roomList') || '[]'),
         courseList: JSON.parse(appGetItem('courseList') || '[]'),
         timeTemplateList: JSON.parse(appGetItem('timeTemplateList') || '[]'),
+        timeTemplateHiddenNames: JSON.parse(appGetItem('timeTemplateHiddenNames') || '[]'),
+        classTemplatePrefs: JSON.parse(appGetItem('classTemplatePrefs') || '{}'),
         currentTableId: currentTableId || '',
         appName: getAppName(),
         appSubtitle: getAppSubtitle()
     };
+}
+
+/** 生成打包预装数据：放入项目根目录 bundled_app_data.json 后重新 PakePlus 打包 */
+async function exportBundledDataForPack(){
+    const backup = buildFullBackupPayload();
+    const payload = {
+        version: 1,
+        packSeed: true,
+        packagedAt: new Date().toISOString(),
+        defaultCurrentTableId: backup.currentTableId || '',
+        multiTableData: backup.multiTableData,
+        classList: backup.classList,
+        teacherList: backup.teacherList,
+        roomList: backup.roomList,
+        courseList: backup.courseList,
+        timeTemplateList: backup.timeTemplateList,
+        timeTemplateHiddenNames: backup.timeTemplateHiddenNames,
+        classTemplatePrefs: backup.classTemplatePrefs
+    };
+    const saved = await saveFileWithPicker(JSON.stringify(payload, null, 2), 'bundled_app_data.json', {
+        extensions: ['json'], mimeType: 'application/json'
+    });
+    if(saved){
+        alert(typeof t==='function'
+            ? t('backup.packSeedOk')
+            : '✅ 已导出 bundled_app_data.json。\n请把该文件复制到打包目录（与 index.html 同级），再执行 PakePlus 打包。\n新装软件首次打开会自动载入这些数据（不含账号）。');
+    }
+}
+
+async function exportAllBackup() {
+    const backupData = buildFullBackupPayload();
     const filename = `${sanitizeAppFileName(getAppName())}_全量备份_${new Date().getTime()}.json`;
     const saved = await saveFileWithPicker(JSON.stringify(backupData, null, 2), filename, {
         extensions: ['json'], mimeType: 'application/json'
@@ -1188,6 +1564,12 @@ function importAllBackup() {
             if (backupData.timeTemplateList) {
                 timeTemplateList = backupData.timeTemplateList;
                 saveTimeTemplateListStorage();
+            }
+            if (backupData.timeTemplateHiddenNames) {
+                appSetItem('timeTemplateHiddenNames', JSON.stringify(backupData.timeTemplateHiddenNames));
+            }
+            if (backupData.classTemplatePrefs) {
+                appSetItem('classTemplatePrefs', JSON.stringify(backupData.classTemplatePrefs));
             }
 
             if (backupData.currentTableId && tableList.find(t => t.id === backupData.currentTableId)) {
