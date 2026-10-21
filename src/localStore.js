@@ -2,6 +2,8 @@
 // 优先级：打包版应用数据目录文件 → IndexedDB → localStorage
 // 业务大表（课表等）以内存缓存为主写入文件/IDB；localStorage 仅作小数据兼容镜像
 const APP_DATA_FILE = 'schedule_app_data.json';
+/** 与 index.html 同目录，PakePlus 打包进安装包；仅首次无本地数据时导入（不含账号） */
+const BUNDLED_APP_DATA_FILE = 'bundled_app_data.json';
 const APP_DATA_WRITE_PROBE = 'schedule_app_data.write_probe';
 const APP_DATA_IDB_NAME = 'ScheduleAppDB';
 const APP_DATA_IDB_VERSION = 1;
@@ -15,6 +17,8 @@ const APP_BULK_STORAGE_KEYS = [
     'roomList',
     'courseList',
     'timeTemplateList',
+    'timeTemplateHiddenNames',
+    'classTemplatePrefs',
     /* 打包版（PakePlus/Tauri）localStorage 易丢失，与课表一并落 IDB/文件 */
     'schedule_auth_users',
     'schedule_auth_session',
@@ -108,6 +112,61 @@ function normalizeAppDataBundle(raw){
         }
     });
     return hasAny ? bundle : null;
+}
+
+function bundleFromFullBackupShape(raw){
+    if(!raw || typeof raw !== 'object') return null;
+    const bundle = {};
+    if(Array.isArray(raw.multiTableData) || raw.tableList){
+        bundle.multiTableData = JSON.stringify(raw.multiTableData || raw.tableList || []);
+    }
+    ['classList', 'teacherList', 'roomList', 'courseList', 'timeTemplateList', 'timeTemplateHiddenNames', 'classTemplatePrefs'].forEach(function(key){
+        if(raw[key] != null){
+            bundle[key] = typeof raw[key] === 'string' ? raw[key] : JSON.stringify(raw[key]);
+        }
+    });
+    return normalizeAppDataBundle(Object.assign({}, raw, bundle));
+}
+
+function hasMeaningfulAppDataBundle(bundle){
+    if(!bundle || typeof bundle !== 'object') return false;
+    try{
+        const tables = JSON.parse(bundle.multiTableData || '[]');
+        if(Array.isArray(tables) && tables.length > 0) return true;
+    }catch(e){}
+    const keys = Object.keys(bundle);
+    return keys.some(function(k){
+        const v = bundle[k];
+        return typeof v === 'string' && v.length > 2 && v !== '[]' && v !== '{}';
+    });
+}
+
+async function readBundledAppDataSeed(){
+    try{
+        const res = await fetch(BUNDLED_APP_DATA_FILE, { cache: 'no-store' });
+        if(!res.ok) return null;
+        const raw = JSON.parse(await res.text());
+        if(!raw || raw.packSeed !== true) return null;
+        let bundle = normalizeAppDataBundle(raw);
+        if(!bundle && (raw.backupType === 'fullBackup' || Array.isArray(raw.multiTableData))){
+            bundle = bundleFromFullBackupShape(raw);
+        }
+        if(!bundle || !hasMeaningfulAppDataBundle(bundle)) return null;
+        const defaultCurrentTableId = String(raw.defaultCurrentTableId || raw.currentTableId || '').trim();
+        return { bundle: bundle, defaultCurrentTableId: defaultCurrentTableId };
+    }catch(e){
+        return null;
+    }
+}
+
+async function applyBundledAppDataSeedIfNeeded(existingBundle){
+    if(hasMeaningfulAppDataBundle(existingBundle)) return null;
+    const seed = await readBundledAppDataSeed();
+    if(!seed) return null;
+    if(typeof window !== 'undefined' && seed.defaultCurrentTableId){
+        window.__seedDefaultCurrentTableId = seed.defaultCurrentTableId;
+    }
+    return seed.bundle;
 }
 
 function tryMirrorBundleToLocalStorage(bundle){
@@ -300,8 +359,8 @@ async function initAppDataStorage(){
     appDataCache = {};
     appDataReady = false;
 
-    const lsBundle = buildAppDataBundleFromLocalStorage();
-    const hasLocalData = Object.keys(lsBundle).length > 0;
+    let lsBundle = buildAppDataBundleFromLocalStorage();
+    const hasLocalData = hasMeaningfulAppDataBundle(lsBundle);
 
     // 1) 打包版：应用数据目录
     try{
@@ -312,6 +371,11 @@ async function initAppDataStorage(){
             tryMirrorBundleToLocalStorage(fileBundle);
             appDataReady = true;
             return appStorageBackend;
+        }
+        const seedBundle = await applyBundledAppDataSeedIfNeeded(lsBundle);
+        if(seedBundle){
+            lsBundle = Object.assign({}, seedBundle);
+            tryMirrorBundleToLocalStorage(seedBundle);
         }
         if(typeof getAppLocalDataDir === 'function'){
             const dir = await getAppLocalDataDir();
@@ -338,9 +402,16 @@ async function initAppDataStorage(){
                 appDataReady = true;
                 return appStorageBackend;
             }
+            if(!hasMeaningfulAppDataBundle(lsBundle)){
+                const seedBundle = await applyBundledAppDataSeedIfNeeded(lsBundle);
+                if(seedBundle){
+                    lsBundle = Object.assign({}, seedBundle);
+                    tryMirrorBundleToLocalStorage(seedBundle);
+                }
+            }
             appDataCache = Object.assign({}, lsBundle);
             appStorageBackend = 'indexeddb';
-            if(hasLocalData) await writeAppDataIDBBundle(lsBundle);
+            if(hasMeaningfulAppDataBundle(lsBundle)) await writeAppDataIDBBundle(lsBundle);
             appDataReady = true;
             return appStorageBackend;
         }catch(e){
@@ -348,8 +419,17 @@ async function initAppDataStorage(){
         }
     }
 
+    if(!hasMeaningfulAppDataBundle(lsBundle)){
+        const seedBundle = await applyBundledAppDataSeedIfNeeded(lsBundle);
+        if(seedBundle){
+            lsBundle = Object.assign({}, seedBundle);
+            tryMirrorBundleToLocalStorage(seedBundle);
+            appDataCache = Object.assign({}, lsBundle);
+        }
+    }
+
     appStorageBackend = 'localStorage';
-    appDataCache = {};
+    if(!Object.keys(appDataCache).length) appDataCache = {};
     appDataReady = true;
     return appStorageBackend;
 }
